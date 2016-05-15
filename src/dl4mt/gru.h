@@ -1,16 +1,19 @@
 #pragma once
 
-#include "mblas/matrix.h"
+#include "mblas.h"
 
-template <class Weights>
+template <class Backend, class Weights>
 class SlowGRU {
+  typedef typename Backend::Matrix Matrix;
+  
   public:
     SlowGRU(const Weights& model)
     : w_(model) {}
           
-    void GetNextState(mblas::Matrix& NextState,
-                      const mblas::Matrix& State,
-                      const mblas::Matrix& Context) const {
+    void GetNextState(Matrix& NextState,
+                      const Matrix& State,
+                      const Matrix& Context) const {
+      
       using namespace mblas;
       
       const size_t cols = GetStateLength();
@@ -52,12 +55,12 @@ class SlowGRU {
     const Weights& w_;
     
     // reused to avoid allocation
-    mutable mblas::Matrix RU_;
-    mutable mblas::Matrix R_;
-    mutable mblas::Matrix U_;
-    mutable mblas::Matrix H_;
-    mutable mblas::Matrix Temp1_;
-    mutable mblas::Matrix Temp2_;
+    mutable Matrix RU_;
+    mutable Matrix R_;
+    mutable Matrix U_;
+    mutable Matrix H_;
+    mutable Matrix Temp1_;
+    mutable Matrix Temp2_;
 };
 
 __global__ void gElementwiseOps(float* out,
@@ -71,8 +74,11 @@ __global__ void gElementwiseOps(float* out,
                                 const float* bx2,
                                 size_t rows, size_t cols);
 
-template <class Weights>
+template <class Backend, class Weights>
 class FastGRU {
+  
+    typedef typename Backend::Matrix Matrix;
+  
   public:
     FastGRU(const Weights& model)
     : w_(model) {
@@ -83,9 +89,9 @@ class FastGRU {
       }*/
     }
           
-    void GetNextState(mblas::Matrix& NextState,
-                      const mblas::Matrix& State,
-                      const mblas::Matrix& Context) const {
+    void GetNextState(Matrix& NextState,
+                      const Matrix& State,
+                      const Matrix& Context) const {
       using namespace mblas;
       
       const size_t cols = GetStateLength();
@@ -106,12 +112,12 @@ class FastGRU {
       ElementwiseOps(NextState, State, RU_, H_, Temp1_, Temp2_);
     }
         
-    void ElementwiseOps(mblas::Matrix& NextState,
-                        const mblas::Matrix& State,
-                        const mblas::Matrix& RU,
-                        const mblas::Matrix& H,
-                        const mblas::Matrix& Temp1,
-                        const mblas::Matrix& Temp2) const {
+    void ElementwiseOps(Matrix& NextState,
+                        const Matrix& State,
+                        const Matrix& RU,
+                        const Matrix& H,
+                        const Matrix& Temp1,
+                        const Matrix& Temp2) const {
       const size_t rows = State.Rows();
       const size_t cols = State.Cols();
       NextState.Resize(rows, cols);
@@ -139,10 +145,10 @@ class FastGRU {
     cudaStream_t s_[4];
         
     // reused to avoid allocation
-    mutable mblas::Matrix RU_;
-    mutable mblas::Matrix H_;
-    mutable mblas::Matrix Temp1_;
-    mutable mblas::Matrix Temp2_;
+    mutable Matrix RU_;
+    mutable Matrix H_;
+    mutable Matrix Temp1_;
+    mutable Matrix Temp2_;
 };
 
 template<class T>

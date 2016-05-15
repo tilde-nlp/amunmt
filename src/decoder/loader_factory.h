@@ -23,19 +23,20 @@ do { \
 
 class LoaderFactory {
   public:
+    template<Backend>
     static LoaderPtr Create(const std::string& name,
                             const YAML::Node& config) {
       UTIL_THROW_IF2(!config["type"],
                      "Missing scorer type in config file");
       
       auto type = config["type"].as<std::string>();
-      IF_MATCH_RETURN(type, "Nematus", EncoderDecoderLoader);
-      IF_MATCH_RETURN(type, "nematus", EncoderDecoderLoader);
-      IF_MATCH_RETURN(type, "NEMATUS", EncoderDecoderLoader);
+      IF_MATCH_RETURN(type, "Nematus", EncoderDecoderLoader<Backend>);
+      IF_MATCH_RETURN(type, "nematus", EncoderDecoderLoader<Backend>);
+      IF_MATCH_RETURN(type, "NEMATUS", EncoderDecoderLoader<Backend>);
       
-      IF_MATCH_RETURN(type, "Ape", ApePenaltyLoader);
-      IF_MATCH_RETURN(type, "ape", ApePenaltyLoader);
-      IF_MATCH_RETURN(type, "APE", ApePenaltyLoader);
+      IF_MATCH_RETURN(type, "Ape", ApePenaltyLoader<Backend>);
+      IF_MATCH_RETURN(type, "ape", ApePenaltyLoader<Backend>);
+      IF_MATCH_RETURN(type, "APE", ApePenaltyLoader<Backend>);
 #ifdef KENLM
       IF_MATCH_RETURN(type, "KenLM", KenLMLoader)
       IF_MATCH_RETURN(type, "kenlm", KenLMLoader)

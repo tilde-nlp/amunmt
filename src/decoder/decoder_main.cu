@@ -24,6 +24,8 @@ int main(int argc, char* argv[]) {
   God::Init(argc, argv);
   boost::timer::cpu_timer timer;
   
+  God::PrepareLoaders<GPUBackend>();
+  
   std::string in;
   std::size_t taskCounter = 0;
   

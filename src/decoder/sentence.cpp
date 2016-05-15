@@ -1,6 +1,7 @@
 #include "sentence.h"
 #include "god.h"
 #include "utils.h"
+#include "exception.h"
 
 Sentence::Sentence(size_t lineNo, const std::string& line)
 : lineNo_(lineNo), line_(line)
@@ -13,6 +14,7 @@ Sentence::Sentence(size_t lineNo, const std::string& line)
 }
 
 const Words& Sentence::GetWords(size_t index) const {
+  UTIL_THROW_IF2(words_.size() <= index, "Tab index " << index << "has not been provided, check input.");
   return words_[index];
 }
 

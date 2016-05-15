@@ -3,23 +3,24 @@
 #include <map>
 #include <string>
 
-#include "mblas/matrix.h"
 #include "npz_converter.h"
 
+template <class Backend>
 struct Weights {
+  typedef typename Backend::Matrix Matrix;
   
   //////////////////////////////////////////////////////////////////////////////
   
   struct EncEmbeddings {
-    EncEmbeddings(const NpzConverter& model)
+    EncEmbeddings(const NpzConverter<Backend>& model)
     : E_(model["Wemb"])
     {}
     
-    const mblas::Matrix E_;
+    const Matrix E_;
   };
   
   struct EncForwardGRU {
-    EncForwardGRU(const NpzConverter& model) 
+    EncForwardGRU(const NpzConverter<Backend>& model) 
     : W_(model["encoder_W"]),  
       B_(model("encoder_b", true)),
       U_(model["encoder_U"]),
@@ -29,17 +30,17 @@ struct Weights {
       Ux_(model["encoder_Ux"])
     { }
     
-    const mblas::Matrix W_;
-    const mblas::Matrix B_;
-    const mblas::Matrix U_;
-    const mblas::Matrix Wx_;
-    const mblas::Matrix Bx1_;
-    const mblas::Matrix Bx2_;
-    const mblas::Matrix Ux_;
+    const Matrix W_;
+    const Matrix B_;
+    const Matrix U_;
+    const Matrix Wx_;
+    const Matrix Bx1_;
+    const Matrix Bx2_;
+    const Matrix Ux_;
   };
   
   struct EncBackwardGRU {
-    EncBackwardGRU(const NpzConverter& model) 
+    EncBackwardGRU(const NpzConverter<Backend>& model) 
     : W_(model["encoder_r_W"]),  
       B_(model("encoder_r_b", true)),
       U_(model["encoder_r_U"]),
@@ -49,37 +50,37 @@ struct Weights {
       Ux_(model["encoder_r_Ux"])
     {}
     
-    const mblas::Matrix W_;
-    const mblas::Matrix B_;
-    const mblas::Matrix U_;
-    const mblas::Matrix Wx_;
-    const mblas::Matrix Bx1_;
-    const mblas::Matrix Bx2_;
-    const mblas::Matrix Ux_;
+    const Matrix W_;
+    const Matrix B_;
+    const Matrix U_;
+    const Matrix Wx_;
+    const Matrix Bx1_;
+    const Matrix Bx2_;
+    const Matrix Ux_;
   };
   
   //////////////////////////////////////////////////////////////////////////////
   
   struct DecEmbeddings {
-    DecEmbeddings(const NpzConverter& model)
+    DecEmbeddings(const NpzConverter<Backend>& model)
     : E_(model["Wemb_dec"])
     {}
     
-    const mblas::Matrix E_;
+    const Matrix E_;
   };
 
   struct DecInit {
-    DecInit(const NpzConverter& model)
+    DecInit(const NpzConverter<Backend>& model)
     : Wi_(model["ff_state_W"]),
       Bi_(model("ff_state_b", true))
     {}
     
-    const mblas::Matrix Wi_;
-    const mblas::Matrix Bi_;
+    const Matrix Wi_;
+    const Matrix Bi_;
   };
   
   struct DecGRU1 {
-    DecGRU1(const NpzConverter& model)
+    DecGRU1(const NpzConverter<Backend>& model)
     : W_(model["decoder_W"]),
       B_(model("decoder_b", true)),
       U_(model["decoder_U"]),      
@@ -89,17 +90,17 @@ struct Weights {
       Ux_(model["decoder_Ux"])
     {}
     
-    const mblas::Matrix W_;
-    const mblas::Matrix B_;
-    const mblas::Matrix U_;
-    const mblas::Matrix Wx_;
-    const mblas::Matrix Bx1_;
-    const mblas::Matrix Bx2_;
-    const mblas::Matrix Ux_;
+    const Matrix W_;
+    const Matrix B_;
+    const Matrix U_;
+    const Matrix Wx_;
+    const Matrix Bx1_;
+    const Matrix Bx2_;
+    const Matrix Ux_;
   };
   
   struct DecGRU2 {
-    DecGRU2(const NpzConverter& model)
+    DecGRU2(const NpzConverter<Backend>& model)
     : W_(model["decoder_Wc"]),
       B_(model("decoder_b_nl", true)),
       U_(model["decoder_U_nl"]),      
@@ -109,17 +110,17 @@ struct Weights {
       Ux_(model["decoder_Ux_nl"])
     {}
           
-    const mblas::Matrix W_;
-    const mblas::Matrix B_;
-    const mblas::Matrix U_;
-    const mblas::Matrix Wx_;
-    const mblas::Matrix Bx2_;
-    const mblas::Matrix Bx1_;
-    const mblas::Matrix Ux_;
+    const Matrix W_;
+    const Matrix B_;
+    const Matrix U_;
+    const Matrix Wx_;
+    const Matrix Bx2_;
+    const Matrix Bx1_;
+    const Matrix Ux_;
   };
   
   struct DecAlignment {
-    DecAlignment(const NpzConverter& model)
+    DecAlignment(const NpzConverter<Backend>& model)
     : V_(model("decoder_U_att", true)),
       W_(model["decoder_W_comb_att"]),
       B_(model("decoder_b_att", true)),
@@ -127,15 +128,15 @@ struct Weights {
       C_(model["decoder_c_tt"]) // scalar?
     {}
           
-    const mblas::Matrix V_;
-    const mblas::Matrix W_;
-    const mblas::Matrix B_;
-    const mblas::Matrix U_;
-    const mblas::Matrix C_;
+    const Matrix V_;
+    const Matrix W_;
+    const Matrix B_;
+    const Matrix U_;
+    const Matrix C_;
   };
   
   struct DecSoftmax {
-    DecSoftmax(const NpzConverter& model)
+    DecSoftmax(const NpzConverter<Backend>& model)
     : W1_(model["ff_logit_lstm_W"]),
       B1_(model("ff_logit_lstm_b", true)),
       W2_(model["ff_logit_prev_W"]),
@@ -146,21 +147,21 @@ struct Weights {
       B4_(model("ff_logit_b", true))
     {}
           
-    const mblas::Matrix W1_;
-    const mblas::Matrix B1_;
-    const mblas::Matrix W2_;
-    const mblas::Matrix B2_;
-    const mblas::Matrix W3_;
-    const mblas::Matrix B3_;
-    const mblas::Matrix W4_;
-    const mblas::Matrix B4_;
+    const Matrix W1_;
+    const Matrix B1_;
+    const Matrix W2_;
+    const Matrix B2_;
+    const Matrix W3_;
+    const Matrix B3_;
+    const Matrix W4_;
+    const Matrix B4_;
   };
   
   Weights(const std::string& npzFile, size_t device = 0)
-  : Weights(NpzConverter(npzFile), device)
+  : Weights(NpzConverter<Backend>(npzFile), device)
   {}
   
-  Weights(const NpzConverter& model, size_t device = 0)
+  Weights(const NpzConverter<Backend>& model, size_t device = 0)
   : encEmbeddings_(model),
     encForwardGRU_(model),
     encBackwardGRU_(model),

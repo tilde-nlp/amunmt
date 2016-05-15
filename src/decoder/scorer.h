@@ -4,27 +4,42 @@
 
 #include "hypothesis.h"
 #include "sentence.h"
-#include "matrix.h"
 
 class State {
   public:
     virtual ~State() {}
     
     template <class T>
-    T& get() {
+    T& as() {
       return static_cast<T&>(*this);
     }
     
     template <class T>
-    const T& get() const {
+    const T& as() const {
       return static_cast<const T&>(*this);;
     }
 };
 
 typedef std::unique_ptr<State> StatePtr;
 typedef std::vector<StatePtr> States;
-typedef mblas::Matrix Prob;
-typedef std::vector<Prob> Probs;
+
+class Prob {
+  public:
+    virtual ~Prob() {}
+    
+    template <class T>
+    T& as() {
+      return static_cast<T&>(*this);
+    }
+    
+    template <class T>
+    const T& as() const {
+      return static_cast<const T&>(*this);;
+    }
+};
+
+typedef std::unique_ptr<Prob> ProbPtr;
+typedef std::vector<ProbPtr> Probs;
 
 class Scorer {
   public:

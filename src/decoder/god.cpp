@@ -9,7 +9,6 @@
 #include "scorer.h"
 #include "threadpool.h"
 #include "file_stream.h"
-#include "loader_factory.h"
 
 God God::instance_;
 
@@ -44,11 +43,6 @@ God& God::NonStaticInit(int argc, char** argv) {
       std::cout << pair.first << "= " << pair.second << std::endl;
     }
     exit(0);
-  }
-  
-  for(auto&& pair : config_.Get()["scorers"]) {
-    std::string name = pair.first.as<std::string>();
-    loaders_.emplace(name, LoaderFactory::Create(name, pair.second));
   }
   
   return *this;

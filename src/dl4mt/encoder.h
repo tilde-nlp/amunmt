@@ -1,11 +1,13 @@
 #pragma once
 
-#include "mblas/matrix.h"
 #include "dl4mt/model.h"
 #include "dl4mt/gru.h"
  
+template <Backend>
 class Encoder {
   private:
+    typedef Backend::Matrix Matrix;
+    
     template <class Weights>
     class Embeddings {
       public:
@@ -13,7 +15,7 @@ class Encoder {
         : w_(model)
         {}
           
-        void Lookup(mblas::Matrix& Row, size_t i) {
+        void Lookup(Matrix& Row, size_t i) {
           using namespace mblas;
           if(i < w_.E_.Rows())
             CopyRow(Row, w_.E_, i);
@@ -36,15 +38,15 @@ class Encoder {
           State_.Resize(batchSize, gru_.GetStateLength(), 0.0);
         }
         
-        void GetNextState(mblas::Matrix& NextState,
-                          const mblas::Matrix& State,
-                          const mblas::Matrix& Embd) {
+        void GetNextState(Matrix& NextState,
+                          const Matrix& State,
+                          const Matrix& Embd) {
           gru_.GetNextState(NextState, State, Embd);
         }
         
         template <class It>
         void GetContext(It it, It end, 
-                        mblas::Matrix& Context, bool invert) {
+                        Matrix& Context, bool invert) {
           InitializeState();
           
           size_t n = std::distance(it, end);
@@ -52,9 +54,9 @@ class Encoder {
           while(it != end) {
             GetNextState(State_, State_, *it++);
             if(invert)
-              mblas::PasteRow(Context, State_, n - i - 1, gru_.GetStateLength());
+              PasteRow(Context, State_, n - i - 1, gru_.GetStateLength());
             else
-              mblas::PasteRow(Context, State_, i, 0);
+              PasteRow(Context, State_, i, 0);
             ++i;
           }
         }
@@ -67,7 +69,7 @@ class Encoder {
         // Model matrices
         const GRU<Weights> gru_;
         
-        mblas::Matrix State_;
+        Matrix State_;
     };
     
   public:
@@ -78,8 +80,8 @@ class Encoder {
     {}
     
     void GetContext(const std::vector<size_t>& words,
-                    mblas::Matrix& Context) {
-      std::vector<mblas::Matrix> embeddedWords;
+                    Matrix& Context) {
+      std::vector<Matrix> embeddedWords;
       
       Context.Resize(words.size(), forwardRnn_.GetStateLength() + backwardRnn_.GetStateLength());
       for(auto& w : words) {
@@ -96,7 +98,7 @@ class Encoder {
     }
     
   private:
-    Embeddings<Weights::EncEmbeddings> embeddings_;
-    RNN<Weights::EncForwardGRU> forwardRnn_;
-    RNN<Weights::EncBackwardGRU> backwardRnn_;
+    Embeddings<Weights<Backend>::EncEmbeddings> embeddings_;
+    RNN<Weights<Backend>::EncForwardGRU> forwardRnn_;
+    RNN<Weights<Backend>::EncBackwardGRU> backwardRnn_;
 };

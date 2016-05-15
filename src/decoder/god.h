@@ -7,6 +7,7 @@
 #include "loader.h"
 #include "scorer.h"
 #include "logging.h"
+#include "loader_factory.h"
   
 class Weights;
   
@@ -43,6 +44,14 @@ class God {
     static void CleanUp();
     
     void LoadWeights(const std::string& path);
+    
+    template <class Backend>
+    static void PrepareLoaders() {
+      for(auto&& pair : Summon().config_.Get()["scorers"]) {
+        std::string name = pair.first.as<std::string>();
+        Summon().loaders_.emplace(name, LoaderFactory::Create<Backend>(name, pair.second));
+      }
+    }
     
   private:
     God& NonStaticInit(int argc, char** argv);

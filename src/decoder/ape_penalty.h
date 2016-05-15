@@ -5,7 +5,6 @@
 #include "types.h"
 #include "file_stream.h"
 #include "scorer.h"
-#include "matrix.h"
 
 typedef std::vector<Word> SrcTrgMap;
 typedef std::vector<float> Penalties; 
@@ -14,6 +13,18 @@ class ApePenaltyState : public State {
   // Dummy, this scorer is stateless
 };
 
+template <class Backend>
+class ApePenaltyProb : public Prob {
+  public:
+    Backend::Matrix& GetProb() {
+      return prob_;
+    }
+  
+  private:
+    Backend::Matrix prob_;
+};
+
+template <class Backend>
 class ApePenalty : public Scorer {
   private:
     const SrcTrgMap& srcTrgMap_;
@@ -48,10 +59,11 @@ class ApePenalty : public Scorer {
     virtual void Score(const State& in,
                        Prob& prob,
                        State& out) {
-      size_t cols = prob.Cols();
+      ApePenaltyProb<Backend>& apeProb = prob.as<ApePenaltyProb<Backend>>();
+      size_t cols = apeProb.GetProb().Cols();
       costs_.resize(cols, -1.0);
-      for(size_t i = 0; i < prob.Rows(); ++i)
-        algo::copy(costs_.begin(), costs_.begin() + cols, prob.begin() + i * cols);
+      for(size_t i = 0; i < apeProb.GetProb().Rows(); ++i)
+        algo::copy(costs_.begin(), costs_.begin() + cols, apeProb.GetProb().begin() + i * cols);
     }
     
     virtual State* NewState() {
