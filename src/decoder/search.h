@@ -23,7 +23,7 @@ class Search {
     }
     
     History Decode(const Sentence& sentence) {
-      std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+      std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
       
       size_t beamSize = God::Get<size_t>("beam-size");
       bool normalize = God::Get<bool>("normalize");
@@ -83,7 +83,7 @@ class Search {
         
       } while(history.size() <= maxLength);
       
-      std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+      std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
       std::chrono::duration<double> fp_s = end - start;
       LOG(progress) << "Line " << sentence.GetLine()
         << ": Search took " << fp_s.count()

@@ -14,20 +14,15 @@ class SlowGRU {
       using namespace mblas;
       
       const size_t cols = GetStateLength();
-      
-      // @TODO: Optimization
-      // @TODO: Launch streams to perform GEMMs in parallel
-      // @TODO: Join matrices and perform single GEMM --------
+
       Prod(RU_, Context, w_.W_);
       Prod(H_,  Context, w_.Wx_);
       // -----------------------------------------------------
       
-      // @TODO: Join matrices and perform single GEMM --------
       Prod(Temp1_, State, w_.U_);
       Prod(Temp2_, State, w_.Ux_);        
       // -----------------------------------------------------
       
-      // @TODO: Organize into one kernel ---------------------
       BroadcastVec(_1 + _2, RU_, w_.B_); // Broadcasting row-wise
       Element(Logit(_1 + _2), RU_, Temp1_);
       Slice(R_, RU_, 0, cols);
