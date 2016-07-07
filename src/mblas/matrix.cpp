@@ -1,20 +1,8 @@
 #include "matrix.h"
 #include "simd_math_prims.h"
+#include "quant/qgemm.h"
 
 namespace mblas {
-
-Matrix& Swap(Matrix& Out, Matrix& In) {
-  size_t iRows = In.Rows();
-  size_t iCols = In.Cols();
-  size_t oRows = Out.Rows();
-  size_t oCols = Out.Cols();
-
-  Out.Reshape(iRows, iCols);
-  In.Reshape(oRows, oCols);
-
-  In.GetVec().swap(Out.GetVec());
-  return Out;
-}
 
 Matrix& Mean(Matrix& Out, const Matrix& In) {
   size_t m = In.Rows();
@@ -25,36 +13,14 @@ Matrix& Mean(Matrix& Out, const Matrix& In) {
 
   float alpha = 1.0 / m;
   float beta  = 0.0;
-  cblas_sgemv(CblasColMajor, CblasNoTrans, n, m, alpha, In.data(), n,
-              Ones.data(), 1, beta, Out.data(), 1);
-  return Out;
-}
-
-Matrix& Transpose(Matrix& Out, const Matrix& In) {
-  size_t m = In.Rows();
-  size_t n = In.Cols();
-
-  Out.Resize(n, m);
-
-  const float* d_in = In.data();
-  float* d_out = Out.data();
-  
-  for(int i = 0; i < m; ++i)
-    for(int j = 0; j < n; ++j)
-      d_out[j * m + i] = d_in[i * n  + j];
-    
-  return Out;
-}
-
-Matrix& Transpose(Matrix& Out) {
-  Matrix Temp;
-  Transpose(Temp, Out);
-  Swap(Out, Temp);
+  cblas_sgemv(CblasColMajor, CblasNoTrans, n, m, alpha, (float*)In.data(), n,
+              (float*)Ones.data(), 1, beta, (float*)Out.data(), 1);
   return Out;
 }
 
 Matrix& Copy(Matrix& Out, const Matrix& In) {
   Out.Resize(In.Rows(), In.Cols());
+  Out.SetRange(In.Min(), In.Max());
   std::copy(In.begin(), In.end(), Out.begin());
   return Out;
 }
@@ -64,6 +30,7 @@ Matrix& PasteRow(Matrix& Out,
                  const size_t r, const size_t c) {
   size_t start = r * Out.Cols() + c;
   std::copy(In.begin(), In.end(), Out.begin() + start);
+  Out.SetRange(In.Min(), In.Max());
   return Out;
 }
 
@@ -75,17 +42,18 @@ Matrix& CopyRow(Matrix& Out,
   size_t start = r * In.Cols() + c;
   size_t end   = start + length;
   std::copy(In.begin() + start, In.begin() + end, Out.begin());
+  Out.SetRange(In.Min(), In.Max());
   return Out;
 }
 
-void gCopyRows(float* out, const float* in, size_t cols,
+void gCopyRows(data_t* out, const data_t* in, size_t cols,
                const RowPair* devPairs, size_t numPairs) {
   for(int j = 0; j < numPairs; ++j) {
       size_t dstId = devPairs[j].first;
       size_t srcId = devPairs[j].second;
 
-      float* rowOut = out + dstId * cols;
-      const float* rowIn = in + srcId * cols;
+      data_t* rowOut = out + dstId * cols;
+      const data_t* rowIn = in + srcId * cols;
 
       for(int i = 0; i < cols; ++i)
           rowOut[i] = rowIn[i];
@@ -96,8 +64,8 @@ Matrix& CopyRows(Matrix& Out,
                  const Matrix& In,
                  const RowPair* devPairs,
                  size_t numPairs) {
-  float* d_out = Out.data();
-  const float* d_in = In.data();
+  data_t* d_out = Out.data();
+  const data_t* d_in = In.data();
 
   gCopyRows(d_out, d_in, In.Cols(), devPairs, numPairs);
   return Out;
@@ -112,8 +80,19 @@ Matrix& CopyRows(Matrix& Out,
 
 Matrix& Concat(Matrix& Out, const Matrix& In) {
   size_t oldSize = Out.size();
+  
+  float min_new = std::min(Out.Min(), In.Min());
+  float max_new = std::max(Out.Max(), In.Max());
+  
+  RequantizeManyInNewRange(Out.data(), Out.size(), Out.Min(), Out.Max(),
+                           min_new, max_new, Out.data());
+  
   Out.Resize(Out.Rows() + In.Rows(), Out.Cols());
-  std::copy(In.begin(), In.end(), Out.begin() + oldSize);
+  
+  RequantizeManyInNewRange(In.data(), In.size(), In.Min(), In.Max(),
+                           min_new, max_new, Out.data() + oldSize);
+  
+  Out.SetRange(min_new, max_new);
   return Out;
 }
 
@@ -125,15 +104,16 @@ Matrix& Assemble(Matrix& Out,
     rowPairs.emplace_back(i, indeces[i]);
   Out.Resize(rowPairs.size(), In.Cols());
   CopyRows(Out, In, rowPairs);
+  Out.SetRange(In.Min(), In.Max());
   return Out;
 }
 
-void gSlice(float* out, const float* in,
+void gSlice(data_t* out, const data_t* in,
             size_t n, size_t dim,
             size_t rows, size_t cols) {
   for(int j = 0; j < rows; j++) {
-    float* rowOut = out + j * dim;
-    const float* rowIn = in + j * cols + n * dim;
+    data_t* rowOut = out + j * dim;
+    const data_t* rowIn = in + j * cols + n * dim;
 
     for(int i = 0; i < dim; ++i)
         rowOut[i] = rowIn[i];
@@ -146,50 +126,33 @@ Matrix& Slice(Matrix& Out,
 
   Out.Resize(In.Rows(), dim);
 
-  float* d_out = Out.data();
-  const float* d_in = In.data();
+  data_t* d_out = Out.data();
+  const data_t* d_in = In.data();
 
   gSlice(d_out, d_in, n, dim, In.Rows(), In.Cols());
   return Out;
 }
 
-Matrix& Prod(Matrix& C, const Matrix& A, const Matrix& B,
-             bool transA, bool transB) {
-  Matrix::value_type alpha = 1.0;
-  Matrix::value_type beta = 0.0;
-  
-  size_t m = A.Rows();
-  size_t k = A.Cols();
-  if(transA)
-    std::swap(m, k);
-  
-  size_t l = B.Rows();
-  size_t n = B.Cols();
-  if(transB)
-    std::swap(l, n);
-  
-  size_t lda = A.Cols();
-  size_t ldb = B.Cols();
-  size_t ldc = B.Cols();
-  
-  if(transB)
-    ldc = B.Rows();
-  
-  C.Resize(m, n);
-  
-  auto opA = transA ? CblasTrans : CblasNoTrans;
-  auto opB = transB ? CblasTrans : CblasNoTrans;
-  
-  cblas_sgemm(CblasColMajor, opB, opA,
-              n, m, k, alpha, B.data(), ldb, A.data(), lda, beta, C.data(), ldc);
-  return C;
+void Prod(gemmlowp::GemmContext& context,
+          Matrix& C, const Matrix& A, const Matrix& B,
+          bool transA, bool transB) {
+  bool transC = false;
+  if(B.Cols() > A.Rows()) {
+    transA = !transA;
+    transB = !transB;
+    transC = !transC;
+    QGemm(context, B, transB, A, transA, C, transC);
+  }
+  else {
+    QGemm(context, A, transA, B, transB, C, transC);
+  }
 }
 
-void gSoftMax(float* d, size_t rows, size_t cols) {
-  float sum[rows];
+void gSoftMax(data_t* d, size_t rows, size_t cols) {
+  data_t sum[rows];
   for(int j = 0; j < rows; ++j) {
     sum[j] = 0;
-    float* out = d + j * cols;
+    data_t* out = d + j * cols;
     for(int i = 0; i < cols; ++i) {
       out[i] = expapprox(out[i]);
       sum[j]+= out[i];
@@ -205,11 +168,11 @@ Matrix& Softmax(Matrix& Out) {
   return Out;
 }
 
-void gSoftMaxLog(float* d, size_t rows, size_t cols) {
-  float sum[rows];
+void gSoftMaxLog(data_t* d, size_t rows, size_t cols) {
+  data_t sum[rows];
   for(int j = 0; j < rows; ++j) {
     sum[j] = 0;
-    float* out = d + j * cols;
+    data_t* out = d + j * cols;
     for(int i = 0; i < cols; ++i) {
       out[i] = expapprox(out[i]);
       sum[j]+= out[i];

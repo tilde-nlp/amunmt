@@ -2,6 +2,7 @@
 
 #include "cnpy/cnpy.h"
 #include "mblas/matrix.h"
+#include "quant/quantize.h"
 
 class NpzConverter {
   private:
@@ -59,7 +60,10 @@ class NpzConverter {
       if(it != model_.end()) {
         NpyMatrixWrapper np(it->second);
         matrix.Resize(np.size1(), np.size2());
-        std::copy(np.data(), np.data() + np.size(), matrix.begin());
+        float min_range = *std::min_element(np.data(), np.data() + np.size());
+        float max_range = *std::max_element(np.data(), np.data() + np.size());
+        FloatToQuantizedMany(matrix.data(), np.data(), np.size(), min_range, max_range);
+        matrix.SetRange(min_range, max_range);
       }
       else {
         std::cerr << "Missing " << key << std::endl; 
@@ -68,15 +72,10 @@ class NpzConverter {
     }
   
     mblas::Matrix operator()(const std::string& key,
-                                   bool transpose) const {
-      mblas::Matrix matrix;
-      auto it = model_.find(key);
-      if(it != model_.end()) {
-        NpyMatrixWrapper np(it->second);
-        matrix.Resize(np.size1(), np.size2());
-        std::copy(np.data(), np.data() + np.size(), matrix.begin());
-      }
-      mblas::Transpose(matrix);
+                             bool transpose) const {
+      mblas::Matrix matrix = (*this)[key];
+      if(transpose)
+        mblas::Transpose(matrix);
       return std::move(matrix);
     }
   

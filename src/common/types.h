@@ -16,3 +16,6 @@ using DeviceVector = std::vector<T>;
 
 template<class T>
 using HostVector = std::vector<T>;
+
+typedef uint8_t data_t;
+typedef int32_t data32_t;

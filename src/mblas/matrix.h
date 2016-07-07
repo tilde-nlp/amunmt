@@ -3,14 +3,14 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <cblas.h>
 
+#include "types.h"
 #include "base_matrix.h"
-
-#define MAX_THREADS 512
-#define MAX_BLOCKS 65535
-
-#include "cblas.h"
 #include "phoenix_functions.h"
+#include "gemmlowp/public/gemmlowp.h"
+#include "quant/quantize.h"
+
 
 namespace mblas {
 
@@ -24,7 +24,7 @@ class TMatrix : public BaseMatrix {
     typedef typename VecType::const_iterator const_iterator;
 
     TMatrix()
-    : rows_(0), cols_(0)
+    : rows_(0), cols_(0), min_(0), max_(0)
     {}
 
     TMatrix(size_t rows, size_t cols)
@@ -36,7 +36,7 @@ class TMatrix : public BaseMatrix {
     {}
 
     TMatrix(TMatrix&& m)
-    : rows_(m.rows_), cols_(m.cols_), data_(std::move(m.data_)) {}
+    : rows_(m.rows_), cols_(m.cols_), min_(m.min_), max_(m.max_), data_(std::move(m.data_)) {}
 
     TMatrix(const TMatrix& m) = delete;
 
@@ -44,7 +44,7 @@ class TMatrix : public BaseMatrix {
       return data_[i * cols_ + j];
     }
 
-    void Set(size_t i, size_t j, float value)  {
+    void Set(size_t i, size_t j, data_t value)  {
       data_[i * cols_ + j] = value;
     }
 
@@ -54,6 +54,14 @@ class TMatrix : public BaseMatrix {
 
     size_t Cols() const {
       return cols_;
+    }
+    
+    float Min() const {
+      return min_;
+    }
+  
+    float Max() const {
+      return max_;
     }
 
     void Resize(size_t rows, size_t cols) {
@@ -75,6 +83,11 @@ class TMatrix : public BaseMatrix {
     void Reshape(size_t rows, size_t cols) {
       rows_ = rows;
       cols_ = cols;
+    }
+
+    void SetRange(float min, float max) {
+      min_ = min;
+      max_ = max;
     }
 
     void Purge() {
@@ -128,21 +141,24 @@ class TMatrix : public BaseMatrix {
   private:
     size_t rows_;
     size_t cols_;
+    float min_;
+    float max_;
     VecType data_;
 };
 
-typedef std::vector<float> FVec;
-typedef std::vector<unsigned int> IVec;
-
+typedef std::vector<data_t> FVec;
 typedef TMatrix<FVec> Matrix;
-typedef TMatrix<IVec> IMatrix;
+
+typedef std::vector<data32_t> FVec32;
+typedef TMatrix<FVec32> Matrix32;
 
 template <class M>
 void debug1(const M& m, size_t pos = 0, size_t l = 5) {
-  std::cerr << m.Rows() << " " << m.Cols() << std::endl;
+  std::cerr << "rows=" << m.Rows() << " cols=" << m.Cols() << " min=" << m.Min() << " max=" << m.Max() << std::endl;
   for(size_t i = 0; i < m.Rows(); ++i) {
     for(size_t j = pos; j < m.Cols() && j < pos + l; ++j) {
-      std::cerr << m.GetVec()[i * m.Cols() + j] << " ";
+      std::cerr << QuantizedToFloat(m.GetVec()[i * m.Cols() + j], m.Min(), m.Max()) << " ";
+      //std::cerr << (int)m.GetVec()[i * m.Cols() + j] << " ";
     }
     std::cerr << std::endl;
     if(i == 4)
@@ -150,13 +166,56 @@ void debug1(const M& m, size_t pos = 0, size_t l = 5) {
   }
 }
 
-Matrix& Swap(Matrix& Out, Matrix& In);
+template <class M>
+M& Swap(M& Out, M& In) {
+  size_t iRows = In.Rows();
+  size_t iCols = In.Cols();
+  size_t oRows = Out.Rows();
+  size_t oCols = Out.Cols();
+
+  float iMin = In.Min();
+  float iMax = In.Max();
+  float oMin = Out.Min();
+  float oMax = Out.Max();
+
+  Out.Reshape(iRows, iCols);
+  Out.SetRange(iMin, iMax);
+  
+  In.Reshape(oRows, oCols);
+  In.SetRange(oMin, oMax);
+
+  In.GetVec().swap(Out.GetVec());
+  return Out;
+}
+
+template <class M>
+M& Transpose(M& Out, const M& In) {
+  size_t m = In.Rows();
+  size_t n = In.Cols();
+
+  Out.Resize(n, m);
+  Out.SetRange(In.Min(), In.Max());
+
+  const typename M::value_type* d_in = In.data();
+  typename M::value_type* d_out = Out.data();
+  
+  for(int i = 0; i < m; ++i)
+    for(int j = 0; j < n; ++j)
+      d_out[j * m + i] = d_in[i * n  + j];
+    
+  return Out;
+}
+
+template <class M>
+M& Transpose(M& Out) {
+  M Temp;
+  Transpose(Temp, Out);
+  Swap(Out, Temp);
+  return Out;
+}
+
 
 Matrix& Mean(Matrix& Out, const Matrix& In);
-
-Matrix& Transpose(Matrix& Out, const Matrix& In);
-
-Matrix& Transpose(Matrix& Out);
 
 Matrix& Copy(Matrix& Out, const Matrix& In);
 
@@ -191,8 +250,9 @@ Matrix& Slice(Matrix& Out,
               const Matrix& In,
               size_t n, size_t dim);
 
-Matrix& Prod(Matrix& C, const Matrix& A, const Matrix& B,
-             bool transA = false, bool transB = false);
+void Prod(gemmlowp::GemmContext& context,
+          Matrix& C, const Matrix& A, const Matrix& B,
+          bool transA = false, bool transB = false);
 
 Matrix& Softmax(Matrix& Out);
 Matrix& SoftmaxLog(Matrix& Out);
@@ -207,14 +267,14 @@ Matrix& Broadcast(Functor functor, Matrix& Out, const Matrix& In) {
 
   Matrix Temp(rows, cols, 1.0);
 
-  float* d_out = Temp.data();
-  const float* d_in1 = Out.data();
-  const float* d_in2 = In.data();
+  data_t* d_out = Temp.data();
+  const data_t* d_in1 = Out.data();
+  const data_t* d_in2 = In.data();
 
   for(int j = 0; j < rows; ++j) {
-    float* rowOut = d_out + j * cols;
-    const float* rowIn1 = d_in1 + (j % rows1) * cols;
-    const float* rowIn2 = d_in2 + (j / rows1) * cols;
+    data_t* rowOut = d_out + j * cols;
+    const data_t* rowIn1 = d_in1 + (j % rows1) * cols;
+    const data_t* rowIn2 = d_in2 + (j / rows1) * cols;
     
     for(int i = 0; i < cols; ++i)
       rowOut[i] = functor(rowIn1[i], rowIn2[i]);
@@ -241,13 +301,13 @@ Matrix& BroadcastVecColumn(Functor functor, Matrix& Out, const Matrix& In) {
   size_t rows  = Out.Rows();
   size_t cols = Out.Cols();
 
-  float* d_out = Out.data();
-  const float* d_in = In.data();
+  data_t* d_out = Out.data();
+  const data_t* d_in = In.data();
 
   for(int j = 0; j < cols; ++j) {    
     for(int i = 0; i < rows; ++i) {
-      float* rowOut = d_out + i * cols + j;
-      const float* rowIn  = d_in + i;
+      data_t* rowOut = d_out + i * cols + j;
+      const data_t* rowIn  = d_in + i;
       *rowOut = functor(*rowOut, *rowIn);      
     }
   }
@@ -259,11 +319,11 @@ Matrix& BroadcastVec(Functor functor, Matrix& Out, const Matrix& In) {
   size_t rows  = Out.Rows();
   size_t cols = Out.Cols();
 
-  float* d_out = Out.data();
-  const float* d_in = In.data();
+  data_t* d_out = Out.data();
+  const data_t* d_in = In.data();
 
   for(int j = 0; j < rows; ++j) {
-    float* rowOut = d_out + j * cols;
+    data_t* rowOut = d_out + j * cols;
     for(int i = 0; i < cols; ++i)
       rowOut[i] = functor(rowOut[i], d_in[i]);
   }
@@ -273,7 +333,7 @@ Matrix& BroadcastVec(Functor functor, Matrix& Out, const Matrix& In) {
 
 template <class Functor>
 Matrix& Element(Functor functor, Matrix& Out) {
-  float* d_out = Out.data();
+  data_t* d_out = Out.data();
   for(int i = 0; i < Out.size(); ++i)
     d_out[i] = functor(d_out[i]);
   return Out;
@@ -282,8 +342,8 @@ Matrix& Element(Functor functor, Matrix& Out) {
 template <class Functor>
 Matrix& Element(Functor functor,
                 Matrix& Out, const Matrix& In) {
-  float* d_out = Out.data();
-  const float* d_in = In.data();
+  data_t* d_out = Out.data();
+  const data_t* d_in = In.data();
 
   for(int i = 0; i < Out.size(); ++i)
     d_out[i] = functor(d_out[i], d_in[i]);
@@ -295,9 +355,9 @@ template <class Functor>
 Matrix& Element(Functor functor,
                 Matrix& Out, const Matrix& In1, const Matrix& In2) {
   
-  float* d_out = Out.data();
-  const float* d_in1 = In1.data();
-  const float* d_in2 = In2.data();
+  data_t* d_out = Out.data();
+  const data_t* d_in1 = In1.data();
+  const data_t* d_in2 = In2.data();
   
   for(int i = 0; i < Out.size(); ++i)
     d_out[i] = functor(d_out[i], d_in1[i], d_in2[i]);

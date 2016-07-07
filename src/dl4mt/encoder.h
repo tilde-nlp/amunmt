@@ -33,7 +33,10 @@ class Encoder {
         
         void InitializeState(size_t batchSize = 1) {
           State_.Clear();
-          State_.Resize(batchSize, gru_.GetStateLength(), 0.0);
+          State_.SetRange(-1, 1);
+          data_t zero = FloatToQuantized<data_t>(0, -1.0f, 1.0f);
+          State_.Resize(batchSize, gru_.GetStateLength(), zero);
+          
         }
         
         void GetNextState(mblas::Matrix& NextState,
@@ -45,10 +48,12 @@ class Encoder {
         template <class It>
         void GetContext(It it, It end, 
                         mblas::Matrix& Context, bool invert) {
+          Context.SetRange(-1, 1);
           InitializeState();
           
           size_t n = std::distance(it, end);
           size_t i = 0;
+                    
           while(it != end) {
             GetNextState(State_, State_, *it++);
             

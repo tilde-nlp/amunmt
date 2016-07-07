@@ -95,13 +95,13 @@ class Search {
     }
 
     struct ProbCompare {
-      ProbCompare(const float* data) : data_(data) {}
+      ProbCompare(const data_t* data) : data_(data) {}
       
       bool operator()(const unsigned a, const unsigned b) {
         return data_[a] > data_[b];
       }
       
-      const float* data_;
+      const data_t* data_;
     };
     
     void BestHyps(Beam& bestHyps, const Beam& prevHyps,

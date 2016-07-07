@@ -38,7 +38,9 @@ class Decoder {
     class RNNHidden {
       public:
         RNNHidden(const Weights1& initModel, const Weights2& gruModel)
-        : w_(initModel), gru_(gruModel) {}          
+        : w_(initModel), gru_(gruModel) {
+          context_.set_max_num_threads(God::Get<size_t>("threads-openblas"));
+        }          
         
         void InitializeState(mblas::Matrix& State,
                              const mblas::Matrix& SourceContext,
@@ -53,7 +55,7 @@ class Decoder {
           Temp2_.Resize(batchSize, SourceContext.Cols(), 0.0);
           BroadcastVec(_1 + _2, Temp2_, Temp1_);
           
-          Prod(State, Temp2_, w_.Wi_);
+          Prod(context_, State, Temp2_, w_.Wi_);
           BroadcastVec(Tanh(_1 + _2), State, w_.Bi_);
         }
         
@@ -69,6 +71,7 @@ class Decoder {
         
         mblas::Matrix Temp1_;
         mblas::Matrix Temp2_;
+        mutable gemmlowp::GemmContext context_;
     };
     
     template <class Weights>
@@ -92,15 +95,17 @@ class Decoder {
       public:
         Alignment(const Weights& model)
         : w_(model)
-        {  }
+        {
+          context_.set_max_num_threads(God::Get<size_t>("threads-openblas"));
+        }
           
         void GetAlignedSourceContext(mblas::Matrix& AlignedSourceContext,
                                      const mblas::Matrix& HiddenState,
                                      const mblas::Matrix& SourceContext) {
           using namespace mblas;  
           
-          Prod(Temp1_, SourceContext, w_.U_);
-          Prod(Temp2_, HiddenState, w_.W_);
+          Prod(context_, Temp1_, SourceContext, w_.U_);
+          Prod(context_, Temp2_, HiddenState, w_.W_);
           BroadcastVec(_1 + _2, Temp2_, w_.B_);
           
           // For batching: create an A across different sentences,
@@ -108,7 +113,7 @@ class Decoder {
           // alignment matrices into one
           // Or masking?
           Broadcast(Tanh(_1 + _2), Temp1_, Temp2_);
-          Prod(A_, w_.V_, Temp1_, false, true);
+          Prod(context_, A_, w_.V_, Temp1_, false, true);
           size_t words = SourceContext.Rows();
           // batch size, for batching, divide by numer of sentences
           size_t batchSize = HiddenState.Rows(); 
@@ -116,7 +121,7 @@ class Decoder {
           Element(_1 + w_.C_(0,0), A_);
           mblas::Softmax(A_);
           
-          Prod(AlignedSourceContext, A_, SourceContext);
+          Prod(context_, AlignedSourceContext, A_, SourceContext);
         }
         
         void GetAttention(mblas::Matrix& Attention) {
@@ -132,6 +137,8 @@ class Decoder {
         
         mblas::Matrix Ones_;
         mblas::Matrix Sums_;
+        
+        mutable gemmlowp::GemmContext context_;
     };
     
     template <class Weights>
@@ -147,9 +154,9 @@ class Decoder {
                   const mblas::Matrix& AlignedSourceContext) {
           using namespace mblas;
           
-          Prod(T1_, State, w_.W1_);
-          Prod(T2_, Embedding, w_.W2_);
-          Prod(T3_, AlignedSourceContext, w_.W3_);
+          Prod(context_, T1_, State, w_.W1_);
+          Prod(context_, T2_, Embedding, w_.W2_);
+          Prod(context_, T3_, AlignedSourceContext, w_.W3_);
           
           BroadcastVec(_1 + _2, T1_, w_.B1_);
           BroadcastVec(_1 + _2, T2_, w_.B2_);
@@ -158,10 +165,10 @@ class Decoder {
           Element(Tanh(_1 + _2 + _3), T1_, T2_, T3_);
           
           if(!filtered_) {
-            Prod(Probs, T1_, w_.W4_);
+            Prod(context_, Probs, T1_, w_.W4_);
             BroadcastVec(_1 + _2, Probs, w_.B4_);
           } else {
-            Prod(Probs, T1_, FilteredW4_);
+            Prod(context_, Probs, T1_, FilteredW4_);
             BroadcastVec(_1 + _2, Probs, FilteredB4_);
           }
           mblas::SoftmaxLog(Probs);
@@ -193,6 +200,8 @@ class Decoder {
         mblas::Matrix T1_;
         mblas::Matrix T2_;
         mblas::Matrix T3_;
+        
+        mutable gemmlowp::GemmContext context_;
     };
     
   public:
