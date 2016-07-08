@@ -142,6 +142,8 @@ typedef TMatrix<FVec> Matrix;
 template <typename T>
 class QuantMatrix : public TMatrix<T> {
   public:
+    QuantMatrix() : TMatrix<T>() {}
+    QuantMatrix(size_t r, size_t c) : TMatrix<T>(r, c) {}
   
     float Min() const {
       return min_;
