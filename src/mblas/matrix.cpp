@@ -1,5 +1,6 @@
 #include "matrix.h"
 #include "simd_math_prims.h"
+#include "quant/qgemm.h"
 
 namespace mblas {
 
@@ -16,6 +17,32 @@ Matrix& Swap(Matrix& Out, Matrix& In) {
   return Out;
 }
 
+QMatrix& Swap(QMatrix& Out, QMatrix& In) {
+  size_t iRows = In.Rows();
+  size_t iCols = In.Cols();
+  size_t oRows = Out.Rows();
+  size_t oCols = Out.Cols();
+  float iMin = In.Min();
+  float iMax = In.Max();
+  float oMin = Out.Min();
+  float oMax = Out.Max();
+  
+  Out.Reshape(iRows, iCols);
+  Out.SetRange(iMin, iMax);
+  In.Reshape(oRows, oCols);
+  In.SetRange(oMin, oMax);
+  
+  In.GetVec().swap(Out.GetVec());
+  return Out;
+}
+
+QMatrix& QTranspose(QMatrix& In) {
+  float min = In.Min();
+  float max = In.Max();
+  Transpose(In);
+  In.SetRange(min, max);
+}
+
 Matrix& Mean(Matrix& Out, const Matrix& In) {
   size_t m = In.Rows();
   size_t n = In.Cols();
@@ -27,29 +54,6 @@ Matrix& Mean(Matrix& Out, const Matrix& In) {
   float beta  = 0.0;
   cblas_sgemv(CblasColMajor, CblasNoTrans, n, m, alpha, In.data(), n,
               Ones.data(), 1, beta, Out.data(), 1);
-  return Out;
-}
-
-Matrix& Transpose(Matrix& Out, const Matrix& In) {
-  size_t m = In.Rows();
-  size_t n = In.Cols();
-
-  Out.Resize(n, m);
-
-  const float* d_in = In.data();
-  float* d_out = Out.data();
-  
-  for(int i = 0; i < m; ++i)
-    for(int j = 0; j < n; ++j)
-      d_out[j * m + i] = d_in[i * n  + j];
-    
-  return Out;
-}
-
-Matrix& Transpose(Matrix& Out) {
-  Matrix Temp;
-  Transpose(Temp, Out);
-  Swap(Out, Temp);
   return Out;
 }
 
@@ -183,6 +187,18 @@ Matrix& Prod(Matrix& C, const Matrix& A, const Matrix& B,
   cblas_sgemm(CblasColMajor, opB, opA,
               n, m, k, alpha, B.data(), ldb, A.data(), lda, beta, C.data(), ldc);
   return C;
+}
+
+Matrix& QProd(gemmlowp::GemmContext& context,
+              Matrix& C, const QMatrix& A, const QMatrix& B,
+              bool transA, bool transB) {
+  bool transC = false;
+  //if(A.Rows() < B.Cols()) {
+  //  QGemm(context, B, !transB, A, !transA, C, !transC);
+  // }
+  //else {
+    QGemm(context, A, transA, B, transB, C, transC);
+  //}
 }
 
 void gSoftMax(float* d, size_t rows, size_t cols) {

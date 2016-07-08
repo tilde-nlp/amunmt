@@ -6,11 +6,11 @@
 
 #include "base_matrix.h"
 
-#define MAX_THREADS 512
-#define MAX_BLOCKS 65535
-
+#include "types.h"
 #include "cblas.h"
 #include "phoenix_functions.h"
+
+#include "gemmlowp/public/gemmlowp.h"
 
 namespace mblas {
 
@@ -133,10 +133,36 @@ public:
 };
 
 typedef std::vector<float> FVec;
-typedef std::vector<unsigned int> IVec;
+
+typedef std::vector<data_t> QVec;
+typedef std::vector<data32_t> QVec32;
 
 typedef TMatrix<FVec> Matrix;
-//typedef TMatrix<IVec> IMatrix;
+
+template <typename T>
+class QuantMatrix : public TMatrix<T> {
+  public:
+  
+    float Min() const {
+      return min_;
+    }
+    
+    float Max() const {
+      return max_;
+    }
+    
+    void SetRange(float min, float max) {
+      min_ = min;
+      max_ = max;
+    }
+    
+  private:
+    float min_;
+    float max_;
+};
+
+typedef QuantMatrix<QVec> QMatrix;
+typedef QuantMatrix<QVec32> QMatrix32;
 
 template <class M>
 void Debug(const M& m, size_t pos = 0, size_t l = 5) {
@@ -170,13 +196,39 @@ std::ostream& operator<<(std::ostream &out, const TMatrix<VecType> &m)
   return out;
 }
 
-Matrix& Swap(Matrix& Out, Matrix& In);
-
 Matrix& Mean(Matrix& Out, const Matrix& In);
 
-Matrix& Transpose(Matrix& Out, const Matrix& In);
+Matrix& Swap(Matrix& Out, Matrix& In);
 
-Matrix& Transpose(Matrix& Out);
+QMatrix& Swap(QMatrix& Out, QMatrix& In);
+
+QMatrix& QTranspose(QMatrix& Out);
+
+template <class M>
+M& Transpose(M& Out, const M& In) {
+  size_t m = In.Rows();
+  size_t n = In.Cols();
+
+  Out.Resize(n, m);
+
+  const typename M::value_type* d_in = In.data();
+  typename M::value_type* d_out = Out.data();
+  
+  for(int i = 0; i < m; ++i)
+    for(int j = 0; j < n; ++j)
+      d_out[j * m + i] = d_in[i * n  + j];
+    
+  return Out;
+}
+
+template <class M>
+M& Transpose(M& Out) {
+  M Temp;
+  Transpose(Temp, Out);
+  Swap(Out, Temp);
+  return Out;
+}
+
 
 Matrix& Copy(Matrix& Out, const Matrix& In);
 
@@ -214,6 +266,10 @@ Matrix& Slice(Matrix& Out,
 Matrix& Prod(Matrix& C, const Matrix& A, const Matrix& B,
              bool transA = false, bool transB = false);
 
+Matrix& QProd(gemmlowp::GemmContext& context,
+              Matrix& C, const QMatrix& A, const QMatrix& B,
+              bool transA = false, bool transB = false);
+             
 Matrix& Softmax(Matrix& Out);
 Matrix& SoftmaxLog(Matrix& Out);
 
