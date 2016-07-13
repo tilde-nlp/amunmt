@@ -42,13 +42,15 @@ EncoderDecoder::EncoderDecoder(const std::string& name,
 
 void EncoderDecoder::Score(const State& in,
                            Prob& prob,
-                           State& out) {
+                           State& out,
+                           Words* filteredWords,
+                           const Words* srcWords) {
   const EDState& edIn = in.get<EDState>();
   EDState& edOut = out.get<EDState>();
 
   decoder_->MakeStep(edOut.GetStates(), prob,
                      edIn.GetStates(), edIn.GetEmbeddings(),
-                     SourceContext_);
+                     SourceContext_, filteredWords, srcWords);
 }
 
 State* EncoderDecoder::NewState() {

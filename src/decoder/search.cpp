@@ -41,10 +41,9 @@ History Search::Decode(const Sentence& sentence)
 
   size_t vocabSize = scorers_[0]->GetVocabSize();
 
-  bool filter = God::Get<std::vector<std::string>>("softmax-filter").size();
-  if(filter) {
-    vocabSize = MakeFilter(sentence.GetWords(), vocabSize);
-  }
+  // if(filter) {
+    // vocabSize = MakeFilter(sentence.GetWords(), vocabSize);
+  // }
 
   for(size_t i = 0; i < scorers_.size(); i++) {
     scorers_[i]->SetSource(sentence);
@@ -55,11 +54,16 @@ History Search::Decode(const Sentence& sentence)
     scorers_[i]->BeginSentenceState(*states[i]);
   }
 
+  bool filter = God::Get<std::vector<std::string>>("softmax-filter").size();
   const size_t maxLength = sentence.GetWords().size() * 3;
   do {
     for (size_t i = 0; i < scorers_.size(); i++) {
       probs[i].Resize(beamSize, vocabSize);
-      scorers_[i]->Score(*states[i], probs[i], *nextStates[i]);
+      if (filter) {
+        scorers_[i]->Score(*states[i], probs[i], *nextStates[i], &filterIndices_, &sentence.GetWords());
+      } else {
+        scorers_[i]->Score(*states[i], probs[i], *nextStates[i]);
+      }
     }
 
     Beam hyps;
@@ -118,10 +122,14 @@ void Search::BestHyps(Beam& bestHyps, const Beam& prevHyps,
   for(int i = 0; i < prevHyps.size(); ++i)
     Costs.data()[i] = prevHyps[i]->GetCost();
 
-  BroadcastVecColumn(weights[scorers_[0]->GetName()] * boost::phoenix::placeholders::_1 + boost::phoenix::placeholders::_2,
+  BroadcastVecColumn(weights[scorers_[0]->GetName()]
+                       * boost::phoenix::placeholders::_1
+                     + boost::phoenix::placeholders::_2,
                      Probs, Costs);
   for(size_t i = 1; i < ProbsEnsemble.size(); ++i)
-    Element(boost::phoenix::placeholders::_1 + weights[scorers_[i]->GetName()] * boost::phoenix::placeholders::_2,
+    Element(boost::phoenix::placeholders::_1
+            + weights[scorers_[i]->GetName()]
+              * boost::phoenix::placeholders::_2,
             Probs, ProbsEnsemble[i]);
 
   std::vector<unsigned> keys(Probs.size());

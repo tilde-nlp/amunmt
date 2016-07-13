@@ -39,7 +39,9 @@ class Scorer {
 
     virtual void Score(const State& in,
                        Prob& prob,
-                       State& out) = 0;
+                       State& out,
+                       Words* filteredWords = nullptr,
+                       const Words* srcWords = nullptr) = 0;
 
     virtual void BeginSentenceState(State& state) = 0;
 
