@@ -40,7 +40,7 @@ class EncoderDecoder : public Scorer {
                    size_t tab,
                    const Weights& model);
 
-    virtual void Score(const State& in, Prob& prob, State& out);
+    virtual void Score(const State& in, Prob& prob, State& out, Words* filteredWords=nullptr, const Words* srcWords = nullptr);
 
     virtual State* NewState();
 
