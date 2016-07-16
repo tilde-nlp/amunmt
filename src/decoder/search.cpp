@@ -117,7 +117,6 @@ void Search::BestHyps(Beam& bestHyps, const Beam& prevHyps,
   Vector Costs(Probs.cols());
   for(int i = 0; i < prevHyps.size(); ++i)
     Costs.data()[i] = prevHyps[i]->GetCost();
-
   Probs.rowwise() += Costs;
   
   for(size_t i = 1; i < ProbsEnsemble.size(); ++i)
@@ -140,7 +139,7 @@ void Search::BestHyps(Beam& bestHyps, const Beam& prevHyps,
     bestKeys[i] = keys[i];
     bestCosts[i] = Probs.data()[keys[i]];
   }
-
+  
   std::vector<HostVector<float>> breakDowns;
   bool doBreakdown = God::Get<bool>("n-best");
   if(doBreakdown) {
@@ -155,13 +154,14 @@ void Search::BestHyps(Beam& bestHyps, const Beam& prevHyps,
 
   bool filter = God::Get<std::vector<std::string>>("softmax-filter").size();
   for(size_t i = 0; i < beamSize; i++) {
-    size_t wordIndex = bestKeys[i] % Probs.rows();
+    size_t wordIndex = bestKeys[i] / Probs.cols();
 
     if (filter) {
       wordIndex = filterIndices_[wordIndex];
     }
 
-    size_t hypIndex  = bestKeys[i] / Probs.rows();
+    size_t hypIndex  = bestKeys[i] % Probs.cols();
+    
     float cost = bestCosts[i];
 
     HypothesisPtr hyp = history.NewHypothesis(prevHyps[hypIndex], wordIndex, hypIndex, cost);

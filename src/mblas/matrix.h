@@ -14,7 +14,8 @@ namespace mblas {
 
 typedef Eigen::Matrix<float,
                       Eigen::Dynamic,
-                      Eigen::Dynamic> Matrix;
+                      Eigen::Dynamic,
+                      Eigen::RowMajor> Matrix;
 
 typedef Eigen::Matrix<float,
                       Eigen::Dynamic,
@@ -73,117 +74,40 @@ M& Assemble(M& Out, const M& In,
   return Out;
 }
 
-Matrix& Slice(Matrix& Out,
-              const Matrix& In,
-              size_t n, size_t dim);
+template <class M>
+Matrix Softmax(const M& m) {
+  Matrix nums = m.unaryExpr(&expapprox);
+  Matrix denoms = nums.rowwise().sum();
+  for(size_t i = 0; i < m.rows(); ++i)
+    nums.row(i) = nums.row(i) / denoms(i);
+  return std::move(nums);
+}
 
-Matrix& Softmax(Matrix& Out);
-Matrix& SoftmaxLog(Matrix& Out);
+template <class M>
+Matrix SoftmaxCol(const M& m) {
+  Matrix nums = m.unaryExpr(&expapprox);
+  Matrix denoms = nums.colwise().sum();
+  for(size_t i = 0; i < m.cols(); ++i)
+    nums.col(i) = nums.col(i) / denoms(i);
+  return std::move(nums);
+}
 
-template <class Functor, class M1, class M2>
-Matrix& Broadcast(Functor functor, M1& Out, const M2& In) {
-  size_t rows1 = Out.rows();
-  size_t rows2 = In.rows();
+template <class M1, class M2>
+Matrix Add3D(const M1& m1, const M2& m2) {
+  size_t rows1 = m1.rows();
+  size_t rows2 = m2.rows();
 
   size_t rows = rows1 * rows2;
-  size_t cols  = Out.cols();
-
-  Matrix Temp(rows, cols);
+  size_t cols = m1.cols();
   
-  #pragma omp for schedule(dynamic, 10)
-  for(size_t j = 0; j < cols; ++j) {
-    const float* colOut = Out.data() + j * rows1;
-    const float* colIn = In.data() + j * rows2;
-    float* colT = Temp.data() + j * rows;
-    
-    for(size_t i = 0; i < rows; i++) {
-      size_t r1 = i % rows1;
-      size_t r2 = i / rows1;
-      colT[i] = functor(colOut[r1], colIn[r2]);
-    }
+  Matrix out(rows, cols);
+  
+  for(size_t i = 0; i < rows; ++i) {
+    size_t r1 = i % rows1;
+    size_t r2 = i / rows1;
+    out.row(i) = m1.row(r1) + m2.row(r2);
   }
-  
-  Out.swap(Temp);
-  return Out;
-}
-
-template <class Functor>
-Matrix& BroadcastColumn(Functor functor, Matrix& Out, const Matrix& In) {
-  // @TODO: Make this efficient
-  Matrix InTemp =  In.transpose();
-  Matrix OutTemp = Out.transpose();
-  Broadcast(functor, OutTemp, InTemp);
-  Out = OutTemp.transpose();
-  return Out;
-}
-
-template <class Functor>
-Matrix& BroadcastVecColumn(Functor functor, Matrix& Out, const Matrix& In) {
-  size_t rows  = Out.rows();
-  size_t cols = Out.cols();
-
-  float* d_out = Out.data();
-  const float* d_in = In.data();
-
-  for(int j = 0; j < cols; ++j) {    
-    for(int i = 0; i < rows; ++i) {
-      float* rowOut = d_out + i * cols + j;
-      const float* rowIn  = d_in + i;
-      *rowOut = functor(*rowOut, *rowIn);      
-    }
-  }
-  return Out;
-}
-
-template <class Functor>
-Matrix& BroadcastVec(Functor functor, Matrix& Out, const Matrix& In) {
-  size_t rows = Out.rows();
-  size_t cols = Out.cols();
-
-  float* d_out = Out.data();
-  const float* d_in = In.data();
-
-  for(int j = 0; j < cols; ++j) {
-    float* colOut = d_out + j * rows;
-    for(int i = 0; i < rows; ++i)
-      colOut[i] = functor(colOut[i], d_in[j]);
-  }
-  
-  return Out;
-}
-
-template <class Functor>
-Matrix& Element(Functor functor, Matrix& Out) {
-  float* d_out = Out.data();
-  for(int i = 0; i < Out.size(); ++i)
-    d_out[i] = functor(d_out[i]);
-  return Out;
-}
-
-template <class Functor>
-Matrix& Element(Functor functor,
-                Matrix& Out, const Matrix& In) {
-  float* d_out = Out.data();
-  const float* d_in = In.data();
-
-  for(int i = 0; i < Out.size(); ++i)
-    d_out[i] = functor(d_out[i], d_in[i]);
-
-  return Out;
-}
-
-template <class Functor>
-Matrix& Element(Functor functor,
-                Matrix& Out, const Matrix& In1, const Matrix& In2) {
-  
-  float* d_out = Out.data();
-  const float* d_in1 = In1.data();
-  const float* d_in2 = In2.data();
-  
-  for(int i = 0; i < Out.size(); ++i)
-    d_out[i] = functor(d_out[i], d_in1[i], d_in2[i]);
-
-  return Out;
+  return std::move(out);
 }
 
 }

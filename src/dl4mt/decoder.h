@@ -95,8 +95,9 @@ class Decoder {
           Temp1_.noalias() = SourceContext * w_.U_;
           Temp2_.noalias() = (HiddenState * w_.W_).rowwise() + w_.B_;
           
-          Broadcast(Tanh(bpp::_1 + bpp::_2), Temp1_, Temp2_);
-          A_.noalias() = w_.V_ * Temp1_.transpose();
+          const Matrix& t = mblas::Add3D(Temp1_, Temp2_).unaryExpr(&tanhapprox);
+          
+          A_.noalias() = w_.V_ * t.transpose();
           
           size_t words = SourceContext.rows();
           size_t batchSize = HiddenState.rows(); 
@@ -104,10 +105,7 @@ class Decoder {
           A_.array() += w_.C_(0, 0);
           A_.transposeInPlace();
           
-          Matrix nums = A_.unaryExpr(&expapprox);
-          Matrix denoms = nums.rowwise().sum();
-          for(size_t i = 0; i < nums.rows(); ++i)
-            A_.row(i) = nums.row(i) / denoms(i);
+          A_ = mblas::Softmax(A_);
           
           AlignedSourceContext.noalias() = A_ * SourceContext;
         }
@@ -147,14 +145,11 @@ class Decoder {
           mblas::Matrix t = (T1_ + T2_ + T3_).unaryExpr(&tanhapprox).transpose();
           
           if(!filtered_)
-            Probs.noalias() = ((w_.W4_ * t).colwise() + RB4_).unaryExpr(&expapprox);
+            Probs.noalias() = (w_.W4_ * t).colwise() + RB4_;
           else
-            Probs.noalias() = ((FilteredW4_ * t).colwise() + FilteredB4_).unaryExpr(&expapprox);
+            Probs.noalias() = (FilteredW4_ * t).colwise() + FilteredB4_;
 
-          mblas::Matrix denoms = Probs.colwise().sum();
-          for(size_t i = 0; i < Probs.cols(); ++i)
-            Probs.col(i) /= denoms(i);
-          Probs = Probs.unaryExpr(&logapprox);
+          Probs = mblas::SoftmaxCol(Probs).unaryExpr(&logapprox);
         }
     
         void Filter(const std::vector<size_t>& ids) {
