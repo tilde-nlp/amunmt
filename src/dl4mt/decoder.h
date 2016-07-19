@@ -16,6 +16,10 @@ class Decoder {
         Embeddings(const Weights& model)
         : w_(model)
         {}
+<<<<<<< HEAD
+=======
+
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
         void Lookup(mblas::Matrix& Rows, const std::vector<size_t>& ids) {
           using namespace mblas;
           std::vector<size_t> tids = ids;
@@ -55,7 +59,11 @@ class Decoder {
           // Repeat mean batchSize times by broadcasting
           Temp2_.Clear();
           Temp2_.Resize(batchSize, SourceContext.Cols(), 0.0);
+<<<<<<< HEAD
           BroadcastVec(bpp::_1 + bpp::_2, Temp2_, Temp1_);
+=======
+          BroadcastVec(boost::phoenix::placeholders::_1 + boost::phoenix::placeholders::_2, Temp2_, Temp1_);
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
 
           Prod(State, Temp2_, w_.Wi_);
           BroadcastVec(Tanh(bpp::_1 + bpp::_2), State, w_.Bi_);
@@ -107,13 +115,23 @@ class Decoder {
 
           Prod(Temp1_, SourceContext, w_.U_);
           Prod(Temp2_, HiddenState, w_.W_);
+<<<<<<< HEAD
           BroadcastVec(bpp::_1 + bpp::_2, Temp2_, w_.B_);
+=======
+          BroadcastVec(boost::phoenix::placeholders::_1
+                     + boost::phoenix::placeholders::_2, Temp2_, w_.B_);
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
 
           // For batching: create an A across different sentences,
           // maybe by mapping and looping. In the and join different
           // alignment matrices into one
           // Or masking?
+<<<<<<< HEAD
           Broadcast(Tanh(bpp::_1 + bpp::_2), Temp1_, Temp2_);
+=======
+          Broadcast(Tanh(boost::phoenix::placeholders::_1
+                       + boost::phoenix::placeholders::_2), Temp1_, Temp2_);
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
           Prod(A_, w_.V_, Temp1_, false, true);
           size_t words = SourceContext.Rows();
           // batch size, for batching, divide by numer of sentences
@@ -162,6 +180,7 @@ class Decoder {
           Prod(T2_, Embedding, w_.W2_);
           Prod(T3_, AlignedSourceContext, w_.W3_);
 
+<<<<<<< HEAD
           BroadcastVec(bpp::_1 + bpp::_2, T1_, w_.B1_);
           BroadcastVec(bpp::_1 + bpp::_2, T2_, w_.B2_);
           BroadcastVec(bpp::_1 + bpp::_2, T3_, w_.B3_);
@@ -174,6 +193,27 @@ class Decoder {
           } else {
             Prod(Probs, T1_, FilteredW4_);
             BroadcastVec(bpp::_1 + bpp::_2, Probs, FilteredB4_);
+=======
+          BroadcastVec(boost::phoenix::placeholders::_1
+                     + boost::phoenix::placeholders::_2, T1_, w_.B1_);
+          BroadcastVec(boost::phoenix::placeholders::_1
+                     + boost::phoenix::placeholders::_2, T2_, w_.B2_);
+          BroadcastVec(boost::phoenix::placeholders::_1
+                     + boost::phoenix::placeholders::_2, T3_, w_.B3_);
+
+          Element(Tanh(boost::phoenix::placeholders::_1
+                     + boost::phoenix::placeholders::_2
+                     + boost::phoenix::placeholders::_3), T1_, T2_, T3_);
+
+          if(!filtered_) {
+            Prod(Probs, T1_, w_.W4_);
+            BroadcastVec(boost::phoenix::placeholders::_1
+                       + boost::phoenix::placeholders::_2, Probs, w_.B4_);
+          } else {
+            Prod(Probs, T1_, FilteredW4_);
+            BroadcastVec(boost::phoenix::placeholders::_1
+                       + boost::phoenix::placeholders::_2, Probs, FilteredB4_);
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
           }
           mblas::SoftmaxLog(Probs);
         }
@@ -182,12 +222,29 @@ class Decoder {
           filtered_ = true;
 
           using namespace mblas;
+<<<<<<< HEAD
           AssembleCols(FilteredW4_, w_.W4_, ids);
           AssembleCols(FilteredB4_, w_.B4_, ids);
+=======
+
+          Matrix TempW4;
+          Transpose(TempW4, w_.W4_);
+          Assemble(FilteredW4_, TempW4, ids);
+          Transpose(FilteredW4_);
+
+          Matrix TempB4;
+          Transpose(TempB4, w_.B4_);
+          Assemble(FilteredB4_, TempB4, ids);
+          Transpose(FilteredB4_);
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
         }
 
       private:
         const Weights& w_;
+<<<<<<< HEAD
+=======
+
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
         bool filtered_;
         mblas::Matrix FilteredW4_;
         mblas::Matrix FilteredB4_;
@@ -220,7 +277,12 @@ class Decoder {
         std::unordered_set<size_t> newIdxs;
         for (size_t hypIdx = 0; hypIdx < attention_.GetAttention().Rows(); ++hypIdx) {
           for (size_t wordIdx = 0; wordIdx < attention_.GetAttention().Cols(); ++wordIdx) {
+<<<<<<< HEAD
             if (attention_.GetAttention()(hypIdx, wordIdx) > 0.01f ) {
+=======
+            const size_t idx = hypIdx * attention_.GetAttention().Cols() + wordIdx;
+            if (attention_.GetAttention().GetVec()[idx] > 0.01f ) {
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
               newIdxs.insert((*srcWords)[wordIdx]);
             }
           }

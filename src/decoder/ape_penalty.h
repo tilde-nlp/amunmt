@@ -48,9 +48,14 @@ class ApePenalty : public Scorer {
     // @TODO: make this work on GPU
     virtual void Score(const State& in,
                        Prob& prob,
+<<<<<<< HEAD
                        State& cost,
                        Words*,
                        const Words*) {
+=======
+                       State& out,
+                       Words*, const Words*) {
+>>>>>>> f676d87b07a0e9d308f44d2b7114b259e6cf40ca
       size_t cols = prob.Cols();
       costs_.resize(cols, -1.0);
       for(size_t i = 0; i < prob.Rows(); ++i)
