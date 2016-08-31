@@ -36,6 +36,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/}/src/dl4mt&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/}/src/mblas&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/}/src/common&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/}/src/3rd-party&quot;"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.dialect.std.2145062075" name="Language standard" superClass="gnu.cpp.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.cpp.compiler.dialect.c++1y" valueType="enumerated"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.991065562" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
