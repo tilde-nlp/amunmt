@@ -134,4 +134,3 @@ ScorerPtr EncoderDecoderLoader::NewScorer(const size_t taskId) {
   return ScorerPtr(new EncoderDecoder(name_, config_,
                                       tab, *weights_[i]));
 }
-

@@ -25,14 +25,14 @@ Filter::Filter(const Vocab& srcVocab,
     mapper_(ParseAlignmentFile(srcVocab,
                                trgVocab,
                                path,
-                               maxNumTranslation,
-                               numFirstWords)) {}
+                               numFirstWords,
+                               maxNumTranslation)) {}
 
 std::vector<Words> Filter::ParseAlignmentFile(const Vocab& srcVocab,
                                               const Vocab& trgVocab,
                                               const std::string& path,
-                                              const size_t maxNumTranslation,
-                                              const size_t numNFirst) {
+                                              const size_t numNFirst,
+                                              const size_t maxNumTranslation) {
   std::map<Word, std::vector<std::pair<Word, float>>> mapper;
   std::ifstream filterFile(path);
   std::string line;
@@ -69,16 +69,16 @@ std::vector<Words> Filter::ParseAlignmentFile(const Vocab& srcVocab,
   return vecMapper;
 }
 
-Words Filter::GetFilteredVocab(const Words& srcWords, const size_t maxVocabSize) const {
+Words Filter::GetFilteredVocab(const Words& srcWords, const size_t vocabSize) const {
   std::set<Word> filtered;
 
-  for(size_t i = 0; i < std::min(numFirstWords_, maxVocabSize); ++i) {
+  for(size_t i = 0; i < std::min(numFirstWords_, vocabSize); ++i) {
     filtered.insert(i);
   }
 
   for (const auto& srcWord : srcWords) {
     for (const auto& trgWord : mapper_[srcWord]) {
-      if (trgWord < maxVocabSize) {
+      if (trgWord < vocabSize) {
         filtered.insert(trgWord);
       }
     }
