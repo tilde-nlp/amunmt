@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <unordered_set>
 
 #include "common/god.h"
 #include "common/history.h"
@@ -59,16 +60,16 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
       }
 
       if (God::Has("bpe")) {
-        std::vector<int> splitSourceWords;
+        std::unordered_set<int> splitSourceWords;
         for(int counter=0; counter< sourceWordList.size(); counter++) {
           if(EndsWith(sourceWordList[counter], seperator)){
-            splitSourceWords.push_back(counter);
+            splitSourceWords.insert(counter);
           }
         }
-        std::vector<int> splitTargetWords;
+        std::unordered_set<int> splitTargetWords;
         for(int counter=0; counter< targetWordList.size(); counter++) {
           if(EndsWith(targetWordList[counter], seperator)){
-            splitTargetWords.push_back(counter);
+            splitTargetWords.insert(counter);
           }
         }
         int targetWordCount = targetWordList.size() + 1 - splitTargetWords.size();
@@ -82,14 +83,14 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
           int sourceCounter = 0;
           for (int y = 0; y< aligns[x].size(); y++) {
             compressedAlignment[targetCounter][sourceCounter] += aligns[x][y];
-	    if(std::find(splitSourceWords.begin(), splitSourceWords.end(), y) == splitSourceWords.end()){
+	    if(splitSourceWords.find(y) == splitSourceWords.end()){
               if(lastTargetJoinable){
                 compressedAlignment[targetCounter][sourceCounter] /= 2;
               }
 	      sourceCounter++;
             }
           }
-          if(std::find(splitTargetWords.begin(), splitTargetWords.end(), aligns.size() - x - 1) == splitTargetWords.end()){
+          if(splitTargetWords.find(aligns.size() - x - 1) == splitTargetWords.end()){
             targetCounter++;
             lastTargetJoinable = false;
           } else {
