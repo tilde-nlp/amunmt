@@ -40,9 +40,9 @@ The project is a standard Cmake out-of-source build:
     cmake ..
     make -j
 
-If you want to compile only CPU version on a machine with CUDA, add `-DNOCUDA=ON`  flag:
+If you want to compile only CPU version on a machine with CUDA, add `-DCUDA:BOOL=OFF`  flag:
 
-    cmake -DNOCUDA=ON ..
+    cmake -DCUDA:bool=OFF ..
 
 ## Vocabulary files
 Vocabulary files (and all other config files) in AmuNMT are by default YAML files. AmuNMT also reads gzipped yml.gz files.

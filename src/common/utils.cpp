@@ -36,3 +36,12 @@ std::string Join(const std::vector<std::string>& words, const std::string del) {
   }
   return ss.str();
 }
+
+bool EndsWith(std::string const &fullString, std::string const suffix) {
+  if (fullString.length() >= suffix.length()) {
+    return (0 == fullString.compare(fullString.length() - suffix.length(), suffix.length(), suffix));
+  } else {
+    return false;
+  }
+}
+

@@ -5,6 +5,7 @@
 #include "common/scorer.h"
 #include "common/sentence.h"
 #include "common/history.h"
+#include "common/vocab.h"
 
 class Search {
   public:

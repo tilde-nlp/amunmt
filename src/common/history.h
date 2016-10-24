@@ -4,6 +4,7 @@
 
 #include "god.h"
 #include "hypothesis.h"
+#include "sentence.h"
 
 class History {
   private:
@@ -63,6 +64,8 @@ class History {
     Result Top() const {
       return NBest(1)[0];
     }
+
+  std::vector<std::string> sourceWordList;
 
   private:
     std::vector<Beam> history_;

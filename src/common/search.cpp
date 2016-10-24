@@ -5,6 +5,7 @@
 #include "common/god.h"
 #include "common/filter.h"
 #include "common/base_matrix.h"
+#include "common/utils.h"
 
 using namespace std;
 
@@ -30,6 +31,10 @@ History Search::Decode(const Sentence& sentence) {
   // separate History objects.
 
   History history;
+
+  std::vector<std::string> sourceWordList = God::GetSourceVocab(0)(sentence.GetWords());
+  history.sourceWordList = sourceWordList;
+
   Beam prevHyps = { HypothesisPtr(new Hypothesis()) };
   history.Add(prevHyps);
 
