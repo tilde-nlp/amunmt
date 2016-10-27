@@ -1,6 +1,7 @@
 #include "utils.h"
 #include <iostream>
 #include <sstream>
+#include <regex>
 
 void Trim(std::string& s) {
   boost::trim_if(s, boost::is_any_of(" \t\n"));
@@ -43,5 +44,11 @@ bool EndsWith(std::string const &fullString, std::string const suffix) {
   } else {
     return false;
   }
+}
+
+std::string EscapeRegex(std::string text) {
+  const std::regex esc("[.^$|()\\[\\]{}*+?\\\\]");
+  const std::string rep("\\\\&");
+  return regex_replace(text, esc, rep, std::regex_constants::match_default | std::regex_constants::format_sed);
 }
 

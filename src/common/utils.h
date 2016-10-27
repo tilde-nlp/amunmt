@@ -10,3 +10,5 @@ void Split(const std::string& line, std::vector<std::string>& pieces, const std:
 std::string Join(const std::vector<std::string>& words, const std::string del=" ");
 
 bool EndsWith(std::string const &fullString, std::string const suffix);
+
+std::string EscapeRegex(std::string text);
