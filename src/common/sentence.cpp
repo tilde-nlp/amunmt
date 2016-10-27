@@ -26,3 +26,6 @@ size_t Sentence::GetLine() const {
   return lineNo_;
 }
 
+std::string Sentence::GetText() const {
+  return line_;
+}

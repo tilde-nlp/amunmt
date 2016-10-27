@@ -66,6 +66,7 @@ class History {
     }
 
   std::vector<std::string> sourceWordList;
+  std::string sourceText;
 
   private:
     std::vector<Beam> history_;

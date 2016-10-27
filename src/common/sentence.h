@@ -10,6 +10,8 @@ class Sentence {
     const Words& GetWords(size_t index = 0) const;
     
     size_t GetLine() const;
+
+    std::string GetText() const;
     
   private:
     std::vector<Words> words_;

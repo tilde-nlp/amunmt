@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_set>
+#include <regex>
 
 #include "common/god.h"
 #include "common/history.h"
@@ -61,11 +62,37 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
 
       if (God::Has("bpe")) {
         std::unordered_set<int> splitSourceWords;
+	std::string unk_regex = "^";
+	std::vector<int> unk_indexes;
+	bool previous_word_was_unk = false;
         for(int counter=0; counter< sourceWordList.size(); counter++) {
           if(EndsWith(sourceWordList[counter], seperator)){
             splitSourceWords.insert(counter);
+	    unk_regex += sourceWordList[counter].substr(0, sourceWordList[counter].length() - 2);
+          } else {
+	    if(sourceWordList[counter] == "UNK"){
+	      unk_regex += "(.+? ?)";
+	      unk_indexes.push_back(counter);
+	    } else {
+	      unk_regex += sourceWordList[counter];
+	      if(!previous_word_was_unk && counter < sourceWordList.size() -1  ) {
+	        unk_regex += " ";
+	      }
+	    }
           }
         }
+        unk_regex += "$";
+        std::smatch sm;
+        const std::regex r(unk_regex);
+        if(std::regex_search(history.sourceText, sm, r)) {
+          for(int i=1; i < sm.size(); i++) {
+	    std::string match = (std::string)sm[i];
+	    if(match.substr(match.length() - 1, 1) != " "){
+		splitSourceWords.insert(unk_indexes[i]);
+	    }
+	  }
+	}
+
         std::unordered_set<int> splitTargetWords;
         for(int counter=0; counter< targetWordList.size(); counter++) {
           if(EndsWith(targetWordList[counter], seperator)){

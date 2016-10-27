@@ -34,6 +34,7 @@ History Search::Decode(const Sentence& sentence) {
 
   std::vector<std::string> sourceWordList = God::GetSourceVocab(0)(sentence.GetWords());
   history.sourceWordList = sourceWordList;
+  history.sourceText = sentence.GetText();
 
   Beam prevHyps = { HypothesisPtr(new Hypothesis()) };
   history.Add(prevHyps);
