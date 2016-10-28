@@ -91,14 +91,14 @@ void God::LoadPrePostProcessing() {
       for(auto bpePath : Get<std::vector<std::string>>("bpe")) {
         LOG(info) << "using bpe: " << bpePath;
         preprocessors_.push_back(std::vector<PreprocessorPtr>());
-        preprocessors_[i++].emplace_back(new BPE(bpePath));
+        preprocessors_[i++].emplace_back(new BPE(bpePath, GetSourceVocab(0)));
       }
     }
     else {
       LOG(info) << "using bpe: " << Get<std::string>("bpe");
         preprocessors_.push_back(std::vector<PreprocessorPtr>());
       if (Get<std::string>("bpe") != "") {
-        preprocessors_[0].emplace_back(new BPE(Get<std::string>("bpe")));
+        preprocessors_[0].emplace_back(new BPE(Get<std::string>("bpe"), GetSourceVocab(0)));
       }
     }
   }

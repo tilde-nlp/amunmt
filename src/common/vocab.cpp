@@ -26,7 +26,7 @@ size_t Vocab::operator[](const std::string& word) const {
     if(it != str2id_.end())
         return it->second;
     else
-        return 1;
+        return 1; //UNK
 }
 
 Words Vocab::operator()(const std::vector<std::string>& lineTokens, bool addEOS) const {
