@@ -90,8 +90,8 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
           for(int i=1; i < sm.size(); i++) {
 	    std::string match = (std::string)sm[i];
 	    if(match.substr(match.length() - 1, 1) != " "){
-		if(unk_indexes[i] != sourceWordList.size() - 1){ //last UNK can't be joined to next word
-		    splitSourceWords.insert(unk_indexes[i]);
+		if(unk_indexes[i - 1] < sourceWordList.size() - 1){ //last UNK can't be joined to next word
+		    splitSourceWords.insert(unk_indexes[i - 1]);
 		}
 	    }
 	  }
