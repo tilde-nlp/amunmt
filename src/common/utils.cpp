@@ -47,8 +47,13 @@ bool EndsWith(std::string const &fullString, std::string const suffix) {
 }
 
 std::string EscapeRegex(std::string text) {
-  const std::regex esc("[.^$|()\\[\\]{}*+?\\\\]");
-  const std::string rep("\\\\&");
-  return regex_replace(text, esc, rep, std::regex_constants::match_default | std::regex_constants::format_sed);
+  std::stringstream result;
+  for(char& c: text) {
+    if(c == '.' || c == '^' || c == '$' || c == '|' || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}' || c == '*' || c == '+' || c == '?' || c == '\\') {
+	result << '\\';
+    }
+    result << c;
+  }
+  return result.str();
 }
 
