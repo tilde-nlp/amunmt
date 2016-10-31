@@ -62,41 +62,11 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
 
       if (God::Has("bpe")) {
         std::unordered_set<int> splitSourceWords;
-	std::stringstream unk_regex;
-	unk_regex << "^";
-	std::vector<int> unk_indexes;
-	bool previous_word_was_unk = false;
         for(int counter=0; counter< sourceWordList.size(); counter++) {
           if(EndsWith(sourceWordList[counter], seperator)){
             splitSourceWords.insert(counter);
-	    unk_regex << EscapeRegex(sourceWordList[counter].substr(0, sourceWordList[counter].length() - 2));
-          } else {
-	    if(sourceWordList[counter] == "UNK"){
-	      unk_regex << "(.+? ?)";
-	      unk_indexes.push_back(counter);
-	    } else {
-	      unk_regex << EscapeRegex(sourceWordList[counter]);
-	      if(!previous_word_was_unk && counter < sourceWordList.size() -1  ) {
-	        unk_regex << " ";
-	      }
-	    }
           }
         }
-        unk_regex << "$";
-        std::smatch sm;
-	std::string regex_string = unk_regex.str();
-        const std::regex r(regex_string);
-        if(std::regex_search(history.sourceText, sm, r)) {
-          for(int i=1; i < sm.size(); i++) {
-	    std::string match = (std::string)sm[i];
-	    if(match.substr(match.length() - 1, 1) != " "){
-		if(unk_indexes[i - 1] < sourceWordList.size() - 1){ //last UNK can't be joined to next word
-		    splitSourceWords.insert(unk_indexes[i - 1]);
-		}
-	    }
-	  }
-	}
-
         std::unordered_set<int> splitTargetWords;
         for(int counter=0; counter< targetWordList.size(); counter++) {
           if(EndsWith(targetWordList[counter], seperator)){
