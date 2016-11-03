@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_set>
+#include <utility>
 #include <regex>
 #include <algorithm>
 
@@ -49,6 +50,7 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
     std::string translation = Join(targetWordList);
     LOG(progress) << "Translation: " << translation;
 
+    //extract attention matrix (used for alignment)
     auto last = history.Top().second;
     std::vector<SoftAlignment> aligns;
     while (last->GetPrevHyp().get() != nullptr) {
@@ -59,7 +61,10 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
 
     auto unknownWords = history.sentence.unknownWords;
     auto unknownSourceWordIndexes = history.sentence.unknownWordIndexes;
+    std::vector<std::pair<size_t,size_t>> alignedPlaceholders;
+    
 
+    // replace unknown word placehodlers with original text
     const std::string placeholder = "βIDβ";
     std::set<size_t> unknownTargetWordIndexes;
     for(size_t targetWordIndex; targetWordIndex < targetWordList.size(); targetWordIndex++) {
@@ -81,10 +86,15 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
           }
         }
       }
+
+      if(max < 0.1) { //don't use low probability alignments
+        break;
+      }
       std::cerr << "Unknown word placeholder, source index: " << maxSourceWordIndex << ", target index: " << maxTargetWordIndex <<  ", text: " << unknownWords[maxSourceWordIndex] << std::endl;
       unknownSourceWordIndexes.erase(maxSourceWordIndex);
       unknownTargetWordIndexes.erase(maxTargetWordIndex);
       targetWordList[maxTargetWordIndex] = unknownWords[maxSourceWordIndex];
+      alignedPlaceholders.push_back(std::make_pair(maxSourceWordIndex, maxTargetWordIndex));
     }
 
     for(auto sourceWordIndex : unknownSourceWordIndexes) {
@@ -95,9 +105,65 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
     out << postprocessedTranslation;
 
     if (God::Get<bool>("return-alignment")) {
+      // if there were placeholders which represent 2 or more words
+      // inflate alignment matrix accordingly
+      for(size_t placeholderCounter = 0; placeholderCounter < alignedPlaceholders.size(); placeholderCounter++) {
+        std::vector<std::string> wordsInPlaceholder;
+        Split(targetWordList[alignedPlaceholders[placeholderCounter].second], wordsInPlaceholder, " ");
+        if(wordsInPlaceholder.size() > 1) {
+          //insert columns more columns
+          for(size_t x = 0; x < aligns.size(); x++) {
+            float newProb;
+            if(x < alignedPlaceholders[placeholderCounter].second || x > alignedPlaceholders[placeholderCounter].second) {
+              newProb = aligns[x][alignedPlaceholders[placeholderCounter].first] / wordsInPlaceholder.size();
+            } else {
+              newProb = aligns[x][alignedPlaceholders[placeholderCounter].first];
+            }
+            aligns[x][alignedPlaceholders[placeholderCounter].first] = newProb;
+            for(size_t insertColumnCounter=0; insertColumnCounter < wordsInPlaceholder.size() - 1; insertColumnCounter++) {
+              aligns[x].insert(aligns[x].begin() + alignedPlaceholders[placeholderCounter].first, newProb);
+            }
+          }
+          // insert more rows
+          for(size_t insertColumnCounter=0; insertColumnCounter < wordsInPlaceholder.size() - 1; insertColumnCounter++) {
+            std::vector<float> newRow;
+            for(size_t y = 0; y < aligns[alignedPlaceholders[placeholderCounter].second].size(); y++) {
+              newRow.push_back(aligns[alignedPlaceholders[placeholderCounter].second][y]);
+	    }
+            aligns.insert(aligns.begin() + alignedPlaceholders[placeholderCounter].second, newRow);
+	  }
+
+          // align first word in placeholder to first word, second to second, etc, by zeroing other possible alignments
+          for(size_t sourceWordCounter=0; sourceWordCounter < wordsInPlaceholder.size(); sourceWordCounter++) {
+            for(size_t targetWordCounter=0; targetWordCounter < wordsInPlaceholder.size(); targetWordCounter++) {
+              if(sourceWordCounter != targetWordCounter) {
+                aligns[alignedPlaceholders[placeholderCounter].second + targetWordCounter][alignedPlaceholders[placeholderCounter].first + sourceWordCounter] = 0;
+              }
+            }
+          }
+
+          // inflate source and target word list
+          // (don't worry about the content - we have already printed the translation,
+          // and now we just need to know the right word count to prepare alignment matrix
+          // but it's important to insert at the correct places, so that split words (with @@) can be reliably joined)
+          for(size_t someCounter=0; someCounter < wordsInPlaceholder.size() - 1; someCounter++) {
+            sourceWordList.insert(sourceWordList.begin() + alignedPlaceholders[placeholderCounter].first, placeholder);
+            targetWordList.insert(targetWordList.begin() + alignedPlaceholders[placeholderCounter].second, placeholder);
+          }
+        
+          //pad affected placeholder alignments
+          for(size_t counter1 = placeholderCounter + 1; counter1 < alignedPlaceholders.size(); counter1++) {
+            if(alignedPlaceholders[counter1].first > alignedPlaceholders[placeholderCounter].first) {
+              alignedPlaceholders[counter1].first += wordsInPlaceholder.size() - 1;
+            }
+            if(alignedPlaceholders[counter1].second > alignedPlaceholders[placeholderCounter].second) {
+              alignedPlaceholders[counter1].second += wordsInPlaceholder.size() - 1;
+            }
+          }
+        }
+      }
 
       std::stringstream ss;
-
       if (God::Has("bpe")) {
         const std::string seperator = "@@";
         std::unordered_set<size_t> splitSourceWords;
