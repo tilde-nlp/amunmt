@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_set>
 #include <regex>
+#include <algorithm>
 
 #include "common/god.h"
 #include "common/history.h"
@@ -40,49 +41,88 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
   }
   else
   {
-    auto targetWordList = God::GetTargetVocab()(history.Top().first);
-    std::string translation = Join(targetWordList);
-    std::string postprocessedTranslation = Join(God::Postprocess(targetWordList));
-    auto sourceWordList = history.sourceWordList;
+    std::vector<std::string> sourceWordList = history.sentence.words;
     std::string source = Join(sourceWordList);
     LOG(progress) << "Source: " << source;
+
+    std::vector<std::string> targetWordList = God::GetTargetVocab()(history.Top().first);
+    std::string translation = Join(targetWordList);
     LOG(progress) << "Translation: " << translation;
 
+    auto last = history.Top().second;
+    std::vector<SoftAlignment> aligns;
+    while (last->GetPrevHyp().get() != nullptr) {
+      aligns.push_back(*(last->GetAlignment(0)));
+      last = last->GetPrevHyp();
+    }
+    std::reverse(aligns.begin(), aligns.end());
+
+    auto unknownWords = history.sentence.unknownWords;
+    auto unknownSourceWordIndexes = history.sentence.unknownWordIndexes;
+
+    const std::string placeholder = "βIDβ";
+    std::set<size_t> unknownTargetWordIndexes;
+    for(size_t targetWordIndex; targetWordIndex < targetWordList.size(); targetWordIndex++) {
+      if(targetWordList[targetWordIndex].compare(placeholder) == 0) {
+        unknownTargetWordIndexes.insert(targetWordIndex);
+      } 
+    }
+
+    while (unknownTargetWordIndexes.size() > 0 && unknownSourceWordIndexes.size() > 0) {
+      float max = 0;
+      size_t maxSourceWordIndex, maxTargetWordIndex;
+      size_t unknownWordCounter = 0;
+      for(auto sourceWordIndex : unknownSourceWordIndexes) {
+        for(auto targetWordIndex : unknownTargetWordIndexes) {
+          if(aligns[targetWordIndex][sourceWordIndex] > max) {
+            max = aligns[targetWordIndex][sourceWordIndex];
+            maxSourceWordIndex = sourceWordIndex;
+            maxTargetWordIndex = targetWordIndex;
+          }
+        }
+      }
+      std::cerr << "Unknown word placeholder, source index: " << maxSourceWordIndex << ", target index: " << maxTargetWordIndex <<  ", text: " << unknownWords[maxSourceWordIndex] << std::endl;
+      unknownSourceWordIndexes.erase(maxSourceWordIndex);
+      unknownTargetWordIndexes.erase(maxTargetWordIndex);
+      targetWordList[maxTargetWordIndex] = unknownWords[maxSourceWordIndex];
+    }
+
+    for(auto sourceWordIndex : unknownSourceWordIndexes) {
+      std::cerr << "Could not find placeholder in translation, source index: " << sourceWordIndex << ", text: " << unknownWords[sourceWordIndex] << std::endl;      
+    }
+
+    std::string postprocessedTranslation = Join(God::Postprocess(targetWordList));
     out << postprocessedTranslation;
-    const std::string seperator = "@@";
 
     if (God::Get<bool>("return-alignment")) {
+
       std::stringstream ss;
-      auto last = history.Top().second;
-      std::vector<SoftAlignment> aligns;
-      while (last->GetPrevHyp().get() != nullptr) {
-        aligns.push_back(*(last->GetAlignment(0)));
-        last = last->GetPrevHyp();
-      }
 
       if (God::Has("bpe")) {
-        std::unordered_set<int> splitSourceWords;
-        for(int counter=0; counter< sourceWordList.size(); counter++) {
+        const std::string seperator = "@@";
+        std::unordered_set<size_t> splitSourceWords;
+        for(size_t counter=0; counter< sourceWordList.size(); counter++) {
           if(EndsWith(sourceWordList[counter], seperator)){
             splitSourceWords.insert(counter);
           }
         }
-        std::unordered_set<int> splitTargetWords;
-        for(int counter=0; counter< targetWordList.size(); counter++) {
+        std::unordered_set<size_t> splitTargetWords;
+        for(size_t counter=0; counter< targetWordList.size(); counter++) {
           if(EndsWith(targetWordList[counter], seperator)){
             splitTargetWords.insert(counter);
           }
         }
-        int targetWordCount = targetWordList.size() + 1 - splitTargetWords.size();
-        int sourceWordCount = sourceWordList.size() + 1 - splitSourceWords.size();
+        size_t targetWordCount = targetWordList.size() + 1 - splitTargetWords.size();
+        size_t sourceWordCount = sourceWordList.size() + 1 - splitSourceWords.size();
 	float compressedAlignment[targetWordCount][sourceWordCount];
 	memset(compressedAlignment, 0,  sizeof compressedAlignment);
 
-        int targetCounter = 0;
+        size_t targetCounter = 0;
         bool lastTargetJoinable = false;
-        for (int x = aligns.size() -1; x>=0; x--) {
-          int sourceCounter = 0;
-          for (int y = 0; y< aligns[x].size(); y++) {
+
+        for(size_t x = 0; x< aligns.size(); x++) {
+          size_t sourceCounter = 0;
+          for (size_t y = 0; y< aligns[x].size(); y++) {
             compressedAlignment[targetCounter][sourceCounter] += aligns[x][y];
 	    if(splitSourceWords.find(y) == splitSourceWords.end()){
               if(lastTargetJoinable){
@@ -91,7 +131,7 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
 	      sourceCounter++;
             }
           }
-          if(splitTargetWords.find(aligns.size() - x - 1) == splitTargetWords.end()){
+          if(splitTargetWords.find(x) == splitTargetWords.end()){
             targetCounter++;
             lastTargetJoinable = false;
           } else {
@@ -99,9 +139,9 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
           }
         }
 
-        for(int x=0;x < targetWordCount; x++){
+        for(size_t x = 0; x < targetWordCount; x++){
             ss << "(";
-          for(int y=0;y<sourceWordCount; y++){
+          for(size_t y = 0; y < sourceWordCount; y++){
             ss << compressedAlignment[x][y] << " ";
           }
             ss << ") | ";

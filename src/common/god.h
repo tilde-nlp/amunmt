@@ -49,7 +49,7 @@ class God {
     static std::vector<std::string> GetScorerNames();
     static std::map<std::string, float>& GetScorerWeights();
 
-    static std::vector<std::string> Preprocess(size_t i, const std::vector<std::string>& input);
+    static std::vector<std::vector<std::string>> Preprocess(size_t i, const std::vector<std::string>& input);
     static std::vector<std::string> Postprocess(const std::vector<std::string>& input);
 
     static void CleanUp();

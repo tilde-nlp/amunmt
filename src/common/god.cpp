@@ -91,14 +91,14 @@ void God::LoadPrePostProcessing() {
       for(auto bpePath : Get<std::vector<std::string>>("bpe")) {
         LOG(info) << "using bpe: " << bpePath;
         preprocessors_.push_back(std::vector<PreprocessorPtr>());
-        preprocessors_[i++].emplace_back(new BPE(bpePath, GetSourceVocab(0)));
+        preprocessors_[i++].emplace_back(new BPE(bpePath));
       }
     }
     else {
       LOG(info) << "using bpe: " << Get<std::string>("bpe");
         preprocessors_.push_back(std::vector<PreprocessorPtr>());
       if (Get<std::string>("bpe") != "") {
-        preprocessors_[0].emplace_back(new BPE(Get<std::string>("bpe"), GetSourceVocab(0)));
+        preprocessors_[0].emplace_back(new BPE(Get<std::string>("bpe")));
       }
     }
   }
@@ -197,11 +197,18 @@ std::map<std::string, float>& God::GetScorerWeights() {
   return Summon().weights_;
 }
 
-std::vector<std::string> God::Preprocess(size_t i, const std::vector<std::string>& input) {
-  std::vector<std::string> processed = input;
+std::vector<std::vector<std::string>> God::Preprocess(size_t i, const std::vector<std::string>& input) {
+  std::vector<std::vector<std::string>> processed;
   if (Summon().preprocessors_.size() >= i + 1) {
     for (const auto& processor : Summon().preprocessors_[i]) {
-      processed = processor->Preprocess(processed);
+      //yes, cannot anymore put output from one preprocessor as input to another preprocessor
+      //will fix when there really is a need for more than one preprocessor
+      processed = processor->Preprocess(input); 
+    }
+  } else {
+    for(auto word : input) {
+      std::vector<std::string> wordVector = {word};
+      processed.push_back(wordVector);
     }
   }
   return processed;

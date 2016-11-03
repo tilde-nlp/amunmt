@@ -6,7 +6,6 @@
 #include <set>
 #include <unordered_map>
 #include <iterator>
-#include "common/vocab.h"
 
 #include "common/processor/processor.h"
 
@@ -36,9 +35,9 @@ class BPE : public Processor {
 
   public:
     BPE();
-    BPE(std::ifstream&& file, Vocab& vocab, const std::string sep = "@@");
+    BPE(std::ifstream&& file, const std::string sep = "@@");
 
-    BPE(const std::string& path, Vocab& vocab, const std::string sep = "@@");
+    BPE(const std::string& path, const std::string sep = "@@");
 
     std::vector<std::string> Segment(const std::string& sentence);
 
@@ -46,9 +45,9 @@ class BPE : public Processor {
 
     std::vector<std::string>& Encode(const std::string& word);
 
-    std::vector<std::string> Encode(const std::vector<std::string>& words);
+    std::vector<std::vector<std::string>> Encode(const std::vector<std::string>& words);
 
-    std::vector<std::string> Preprocess(const std::vector<std::string> input);
+    std::vector<std::vector<std::string>> Preprocess(const std::vector<std::string> input);
     std::vector<std::string> Postprocess(const std::vector<std::string> input);
 
     virtual ~BPE() {}
@@ -65,7 +64,7 @@ class BPE : public Processor {
 
     std::unordered_map<BPEPair, size_t> bpeCodes_;
     const std::string sep_;
-    Vocab* vocab_;
+
     std::unordered_map<std::string, std::vector<std::string>> cache_;
 
 

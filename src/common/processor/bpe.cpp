@@ -8,7 +8,7 @@
 #include "common/utils.h"
 
 
-std::vector<std::string> BPE::Preprocess(const std::vector<std::string> input) {
+std::vector<std::vector<std::string>> BPE::Preprocess(const std::vector<std::string> input) {
   return Encode(input);
 }
 
@@ -31,9 +31,8 @@ std::vector<std::string> BPE::Postprocess(const std::vector<std::string> input) 
 BPE::BPE()
   : sep_("@@") {}
 
-BPE::BPE(std::ifstream&& file, Vocab& vocab, const std::string sep)
+BPE::BPE(std::ifstream&& file,  const std::string sep)
   : sep_(sep) {
-  vocab_ = &vocab;
   std::string inputLine;
   size_t index = 0;
   while (std::getline(file, inputLine)) {
@@ -43,8 +42,8 @@ BPE::BPE(std::ifstream&& file, Vocab& vocab, const std::string sep)
   }
 }
 
-BPE::BPE(const std::string& path, Vocab& vocab, const std::string sep)
-  : BPE(std::ifstream(path), vocab, sep) {}
+BPE::BPE(const std::string& path, const std::string sep)
+  : BPE(std::ifstream(path), sep) {}
 
 std::vector<std::string> BPE::Segment(const std::string& sentence) {
   std::vector<std::string> words, tokens;
@@ -174,29 +173,15 @@ std::vector<std::string>& BPE::Encode(const std::string& word) {
   cache_[word] = vWord;
   mtx.unlock();
 
-  // if any of the word parts is not in the vocabulary
-  // mark whole word as UNKnown
-  for (size_t i = 0; i < vWord.size(); ++i) {
-    if((*vocab_)[vWord[i]] == 1) {
-	vWord.clear();
-	vWord.push_back("UNK");
-	break;
-    }
-  }
-
-  mtx.lock();
-  cache_[word] = vWord;
-  mtx.unlock();
-
-
   return cache_[word];
 }
 
-std::vector<std::string> BPE::Encode(const std::vector<std::string>& words) {
-  std::vector<std::string> result;
+std::vector<std::vector<std::string>> BPE::Encode(const std::vector<std::string>& words) {
+  std::vector<std::vector<std::string>> result;
   for (const auto& word : words) {
     auto& encoded = Encode(word);
-    result.insert(result.end(), encoded.begin(), encoded.end());
+    //result.insert(result.end(), encoded.begin(), encoded.end());
+    result.push_back(encoded);
   }
   // std::cerr << "BPE: ";
   // for (auto& code: result) std::cerr << code << " " ;

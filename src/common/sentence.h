@@ -2,9 +2,12 @@
 #include <vector>
 #include <string>
 #include "types.h"
+#include <set>
+#include <map>
 
 class Sentence {
   public:
+    Sentence();
     Sentence(size_t lineNo, const std::string& line);
     
     const Words& GetWords(size_t index = 0) const;
@@ -12,6 +15,10 @@ class Sentence {
     size_t GetLine() const;
 
     std::string GetText() const;
+
+    std::set<size_t> unknownWordIndexes;
+    std::map<size_t, std::string> unknownWords;
+    std::vector<std::string> words;
     
   private:
     std::vector<Words> words_;
