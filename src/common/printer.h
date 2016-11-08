@@ -69,7 +69,7 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
       placeholder = God::Get<std::string>("unknown-word-placeholder");
       std::set<size_t> unknownTargetWordIndexes;
 
-      for(size_t targetWordIndex; targetWordIndex < targetWordList.size(); targetWordIndex++) {
+      for(size_t targetWordIndex = 0; targetWordIndex < targetWordList.size(); targetWordIndex++) {
         if(targetWordList[targetWordIndex].compare(placeholder) == 0) {
           unknownTargetWordIndexes.insert(targetWordIndex);
         } 
@@ -79,6 +79,7 @@ void Printer(const History& history, size_t lineNo, OStream& out) {
         float max = 0;
         size_t maxSourceWordIndex, maxTargetWordIndex;
         size_t unknownWordCounter = 0;
+	
         for(auto sourceWordIndex : unknownSourceWordIndexes) {
           for(auto targetWordIndex : unknownTargetWordIndexes) {
             if(aligns[targetWordIndex][sourceWordIndex] > max) {
