@@ -19,36 +19,42 @@ Sentence::Sentence(size_t lineNo, const std::string& line)
     auto processed = God::Preprocess(i, lineTokens);
     auto vocab = God::GetSourceVocab(0);
 
-    bool thisWordIsUNK = false;
-    bool lastWordWasUNK = false;
-    for(size_t wordCounter = 0; wordCounter < processed.size(); wordCounter++){
-        thisWordIsUNK = false;
-	for(size_t wordPartCounter = 0; wordPartCounter < processed[wordCounter].size(); wordPartCounter++) {
-	    // if any part of the word is UNK
-	    // use non-translatable token instead
-	    // this token should be configurable
-	    // it depends on what placeholder names are trained into translation model
-	    if(vocab[processed[wordCounter][wordPartCounter]] == 1) { //UNK
-		    thisWordIsUNK = true;
-                    if(lastWordWasUNK) {
-                      unknownWords[words.size() - 1] += unknownWords[words.size()] + " " + lineTokens[wordCounter]; // join subsequent unknown words
-                    } else {
-                      unknownWordIndexes.insert(words.size());
-		      unknownWords[words.size()] = lineTokens[wordCounter];
-		      processed[wordCounter].clear();
-		      processed[wordCounter].push_back("βIDβ");
-                    }
+    if(God::Has("unknown-word-placeholder")){
+	bool thisWordIsUNK = false;
+	bool lastWordWasUNK = false;
+	for(size_t wordCounter = 0; wordCounter < processed.size(); wordCounter++){
+	    thisWordIsUNK = false;
+	     for(size_t wordPartCounter = 0; wordPartCounter < processed[wordCounter].size(); wordPartCounter++) {
+		// if any part of the word is UNK
+		// there is quite small chance that the word was seen in training data at all
+		// so, use non-translatable token instead
+		if(vocab[processed[wordCounter][wordPartCounter]] == 1) { //UNK
+	    	    thisWordIsUNK = true;
+            	    if(lastWordWasUNK) {
+                	unknownWords[words.size() - 1] += unknownWords[words.size()] + " " + lineTokens[wordCounter]; // join subsequent unknown words
+            	    } else {
+                	unknownWordIndexes.insert(words.size());
+	        	unknownWords[words.size()] = lineTokens[wordCounter];
+	        	processed[wordCounter].clear();
+	        	processed[wordCounter].push_back(God::Get<std::string>("unknown-word-placeholder"));
+            	    }
 		    break;
+		}
+	    }
+	    if(!thisWordIsUNK || !lastWordWasUNK) { // merge subsequent unknown word placeholders
+		for(size_t wordPartCounter = 0; wordPartCounter < processed[wordCounter].size(); wordPartCounter++) {
+		    words.push_back(processed[wordCounter][wordPartCounter]);
+		}
+    	    }
+    	    lastWordWasUNK = thisWordIsUNK;
+	}
+    } else {
+	for(size_t wordCounter = 0; wordCounter < processed.size(); wordCounter++){
+	    for(size_t wordPartCounter = 0; wordPartCounter < processed[wordCounter].size(); wordPartCounter++) {
+		words.push_back(processed[wordCounter][wordPartCounter]);
 	    }
 	}
-	if(!thisWordIsUNK || !lastWordWasUNK) { // merge subsequent unknown word placeholders
-	  for(size_t wordPartCounter = 0; wordPartCounter < processed[wordCounter].size(); wordPartCounter++) {
-	      words.push_back(processed[wordCounter][wordPartCounter]);
-	  }
-        }
-        lastWordWasUNK = thisWordIsUNK;
     }
-
     words_.push_back(God::GetSourceVocab(i++)(words));
   }
 }

@@ -79,7 +79,7 @@ History Search::Decode(const Sentence& sentence) {
     Beam hyps;
     const BaseMatrix &firstMatrix = *probs[0];
 
-    bool returnAlignment = God::Get<bool>("return-alignment");
+    bool returnAlignment = God::Get<bool>("return-alignment") || God::Has("unknown-word-placeholder");
 
     firstMatrix.BestHyps(hyps, prevHyps, probs, beamSize, history, scorers_, filterIndices_, returnAlignment);
     history.Add(hyps, history.size() == maxLength);
