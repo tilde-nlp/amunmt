@@ -1,8 +1,9 @@
 #include <set>
 
-#include "config.h"
-#include "file_stream.h"
-#include "exception.h"
+#include "common/config.h"
+#include "common/file_stream.h"
+#include "common/exception.h"
+#include "common/git_version.h"
 
 #define SET_OPTION(key, type) \
 do { if(!vm_[key].defaulted() || !config_[key]) { \
@@ -199,6 +200,8 @@ void Config::AddOptions(size_t argc, char** argv) {
      "Use WIPO specific n-best-list format and non-buffering single-threading")
     ("return-alignment", po::value<bool>()->zero_tokens()->default_value(false),
      "If true, return alignment.")
+    ("version,v", po::value<bool>()->zero_tokens()->default_value(false),
+     "Print version.")
     ("help,h", po::value<bool>()->zero_tokens()->default_value(false),
      "Print this help message and exit")
   ;
@@ -247,6 +250,11 @@ void Config::AddOptions(size_t argc, char** argv) {
   if (vm_["help"].as<bool>()) {
     std::cerr << "Usage: " + std::string(argv[0]) +  " [options]" << std::endl;
     std::cerr << cmdline_options << std::endl;
+    exit(0);
+  }
+
+  if (vm_["version"].as<bool>()) {
+    std::cerr << AMUNMT_GIT_VERION << std::endl;
     exit(0);
   }
 
