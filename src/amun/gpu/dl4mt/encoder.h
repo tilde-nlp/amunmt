@@ -29,17 +29,66 @@ class Encoder {
         {}
 
         void Lookup(mblas::Matrix& Row, const Words& words) {
-          HostVector<uint> knownWords(words.size(), 1);
-          for (size_t i = 0; i < words.size(); ++i) {
-            if (words[i] < w_.E_->dim(0)) {
-              knownWords[i] = words[i];
-            }
+          std::vector<HostVector<uint>> knownWords(w_.Es_.size(),
+                                                   HostVector<uint>(words.size(), 1));
+          std::cerr << "------------" << std::endl;
+          for (auto fact : words) {
+            std::cerr << " " << fact;
+            std::cerr << std::endl;
           }
+          size_t factorIdx = 0;
+          size_t factorCount = w_.Es_.size();
+          for (size_t i = 0; i < words.size(); ++i) {
+            const Word& factor = words[i];
+            const std::shared_ptr<mblas::Matrix>& Emb = w_.Es_.at(factorIdx);
 
-          DeviceVector<uint> dKnownWords(knownWords);
+            if (factor < Emb->dim(0)) {
+              knownWords[factorIdx][i] = factor;
+            }
+            std::cerr << "knownWords[" << factorIdx << "][" << i << "]=" << knownWords[factorIdx][i] << std::endl;
+            factorIdx = (factorIdx + 1) % factorCount;
+          }
+          /* HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream())); */
+          /* std::cerr << "Embeddings::Lookup1" << std::endl; */
+          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+          std::cerr << "Embeddings::Lookup1" << std::endl;
 
-          Row.NewSize(words.size(), w_.E_->dim(1));
-          mblas::Assemble(Row, *w_.E_, dKnownWords);
+          size_t wordCount = words.size() / factorCount;
+          Row.NewSize(0, wordCount);
+          /* std::vector<std::shared_ptr<mblas::Matrix>>::iterator eit = w_.Es_.begin(); */
+          /* std::vector<HostVector<uint>>::iterator wit = knownWords.begin(); */
+          for (size_t i = 0; i < knownWords.size(); i++) {
+            const HostVector<uint>& factorWords = knownWords.at(i);
+            DeviceVector<uint> dKnownWords(factorWords);
+            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+            std::cerr << "Embeddings::Lookup2" << std::endl;
+
+            const std::shared_ptr<mblas::Matrix>& Emb = w_.Es_.at(i);
+            mblas::Matrix factorRow;
+            factorRow.NewSize(wordCount, Emb->dim(1));
+            mblas::Assemble(factorRow, *Emb, dKnownWords);
+            mblas::Transpose(factorRow);
+            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+            std::cerr << "Embeddings::Lookup3" << std::endl;
+            std::cerr << "Row=" << Row.Debug(1) << std::endl;
+            std::cerr << "factorRow=" << factorRow.Debug(1) << std::endl;
+
+            mblas::Concat(Row, factorRow);
+            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+            std::cerr << "Embeddings::Lookup5" << std::endl;
+
+            /* eit++; */
+            /* wit++; */
+            i++;
+          }
+          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+          std::cerr << "Embeddings::Lookup4" << std::endl;
+          mblas::Transpose(Row);
+          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+          std::cerr << "Embeddings::Lookup-end" << std::endl;
+
+          /* Row.NewSize(words.size(), w_.E_->dim(1)); */
+          /* mblas::Assemble(Row, *w_.E_, dKnownWords); */
           //std::cerr << "Row3=" << Row.Debug(1) << std::endl;
         }
 

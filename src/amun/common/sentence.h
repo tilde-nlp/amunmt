@@ -34,3 +34,25 @@ using SentencePtr = std::shared_ptr<Sentence>;
 
 }
 
+/* class EncSentence { */
+/*  public: */
+/*   EncSentence(const God &god, size_t vLineNum, const std::string& line); */
+/*   EncSentence(const God &god, size_t vLineNum, const std::vector<std::string>& words); */
+/*   EncSentence(God &god, size_t lineNum, const std::vector<size_t>& words); */
+
+/*   const EncWords& GetWords(size_t index = 0) const; */
+/*   size_t size(size_t index = 0) const; */
+
+/*   size_t GetLineNum() const; */
+
+
+/*  private: */
+/*   std::vector<EncWords> words_; */
+/*   size_t lineNum_; */
+
+/*   EncSentence(const EncSentence &) = delete; */
+/* }; */
+
+/* using EncSentencePtr = std::shared_ptr<EncSentence>; */
+/* } */
+/* } */
