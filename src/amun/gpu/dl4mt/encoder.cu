@@ -89,12 +89,43 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
   //cerr << "GetContext2=" << context.Debug(1) << endl;
 
   auto input = GetBatchInput(source, tab, maxSentenceLength);
+  // input is a sentence; sentence is a vector of batches; batch is a vector of words
+  // we'll convert each word into a vector of factors by combining every number-of-factors
+  // batches together
+  std::vector<std::vector<std::vector<size_t>>> mergedInput(input.size() / embeddings_.FactorCount());
+  for (size_t i = 0; i < input.size(); ) {
+    std::vector<std::vector<size_t>> newbatch
+      // asume that batchsize is the same for each of the factors of a single word
+      (input[i].size(), std::vector<size_t>(embeddings_.FactorCount()));
+
+    for (size_t factorIdx = 0; factorIdx < embeddings_.FactorCount(); ++factorIdx) {
+      const std::vector<size_t>& batch = input[i];
+
+      for (size_t j = 0; j < batch.size(); ++j) {
+        newbatch.at(j)[factorIdx] = batch[j];
+      }
+      ++i;
+    }
+    std::cerr << "factorcount=" << embeddings_.FactorCount() << std::endl;
+    std::cerr << "old=" << i << "; New idx = " << i / embeddings_.FactorCount() << std::endl;
+    mergedInput[i / embeddings_.FactorCount() - 1] = newbatch;
+  }
+  std::cerr << "------------" << std::endl;
+  for (auto batch : mergedInput) {
+    for (auto word : batch) {
+      for (auto fact : word) {
+        std::cerr << " " << fact;
+      }
+      std::cerr << std::endl;
+    }
+    std::cerr << "===" << std::endl;
+  }
 
   for (size_t i = 0; i < input.size(); ++i) {
     if (i >= embeddedWords_.size()) {
       embeddedWords_.emplace_back();
     }
-    embeddings_.Lookup(embeddedWords_[i], input[i]);
+    embeddings_.Lookup(embeddedWords_[i], mergedInput[i]);
     //cerr << "embeddedWords_=" << embeddedWords_.back().Debug(true) << endl;
   }
 
