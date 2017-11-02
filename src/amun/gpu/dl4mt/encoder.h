@@ -31,15 +31,6 @@ class Encoder {
         void Lookup(mblas::Matrix& Row, const std::vector<std::vector<Word>>& words) {
           std::vector<HostVector<uint>> knownWords(w_.Es_.size(),
                                                    HostVector<uint>(words.size(), 1));
-          std::cerr << "------------" << std::endl;
-          std::cerr << "words size=" << words.size() << std::endl;
-          for (auto word : words) {
-            std::cerr << "word size=" << word.size() << std::endl;
-            for (auto fact : word) {
-              std::cerr << " " << fact;
-            }
-            std::cerr << std::endl;
-          }
           size_t factorCount = w_.Es_.size();
           for (size_t i = 0; i < words.size(); ++i) {
             const std::vector<Word>& factors = words[i];
@@ -50,13 +41,10 @@ class Encoder {
               if (factor < Emb->dim(0)) {
                 knownWords[factorIdx][i] = factor;
               }
-              std::cerr << "knownWords[" << factorIdx << "][" << i << "]=" << knownWords[factorIdx][i] << std::endl;
             }
           }
           /* HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream())); */
           /* std::cerr << "Embeddings::Lookup1" << std::endl; */
-          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-          std::cerr << "Embeddings::Lookup1" << std::endl;
 
           size_t wordCount = words.size() / factorCount;
           //Row.NewSize(0, wordCount);
@@ -65,36 +53,23 @@ class Encoder {
           for (size_t i = 0; i < knownWords.size(); i++) {
             const HostVector<uint>& factorWords = knownWords.at(i);
             DeviceVector<uint> dKnownWords(factorWords);
-            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-            std::cerr << "Embeddings::Lookup2" << std::endl;
 
             const std::shared_ptr<mblas::Matrix>& Emb = w_.Es_.at(i);
             mblas::Matrix factorRow;
             factorRow.NewSize(wordCount, Emb->dim(1));
             mblas::Assemble(factorRow, *Emb, dKnownWords);
             mblas::Transpose(factorRow);
-            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-            std::cerr << "Embeddings::Lookup3" << std::endl;
-            std::cerr << "Row=" << Row.Debug(1) << std::endl;
-            std::cerr << "factorRow=" << factorRow.Debug(1) << std::endl;
 
             if (i > 0) {
               mblas::Concat(Row, factorRow);
             } else {
               mblas::Copy(Row, factorRow);
             }
-            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-            std::cerr << "Embeddings::Lookup4" << std::endl;
 
             /* eit++; */
             /* wit++; */
           }
-          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-          std::cerr << "Embeddings::Lookup5" << std::endl;
           mblas::Transpose(Row);
-          std::cerr << "Row=" << Row.Debug(1) << std::endl;
-          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-          std::cerr << "Embeddings::Lookup-end" << std::endl;
 
           /* Row.NewSize(words.size(), w_.E_->dim(1)); */
           /* mblas::Assemble(Row, *w_.E_, dKnownWords); */
@@ -138,22 +113,14 @@ class Encoder {
         {
           InitializeState(batchSize);
 
-          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-          std::cerr << "RNN::Encode1" << std::endl;
           CellState prevState(std::unique_ptr<mblas::Matrix>(new mblas::Matrix(*(State_.cell))),
                               std::unique_ptr<mblas::Matrix>(new mblas::Matrix(*(State_.output))));
           size_t n = std::distance(it, end);
           size_t i = 0;
 
-          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-          std::cerr << "RNN::Encode2" << std::endl;
           while(it != end) {
-            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-            std::cerr << "RNN::Encode3.1" << std::endl;
             GetNextState(State_, prevState, *it++);
 
-            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-            std::cerr << "RNN::Encode3.2" << std::endl;
             //std::cerr << "invert=" << invert << std::endl;
             if(invert) {
               assert(sentencesMask);
@@ -178,8 +145,6 @@ class Encoder {
             prevState.output->swap(*(State_.output));
             ++i;
           }
-          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-          std::cerr << "RNN::Encode4" << std::endl;
         }
 
         CellLength GetStateLength() const {
