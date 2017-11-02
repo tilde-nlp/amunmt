@@ -92,7 +92,10 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
   // input is a sentence; sentence is a vector of batches; batch is a vector of words
   // we'll convert each word into a vector of factors by combining every number-of-factors
   // batches together
+  std::cerr << "input.size=" << input.size() << std::endl;
+  std::cerr << "embeddings_.FactorCount=" << embeddings_.FactorCount() << std::endl;
   std::vector<std::vector<std::vector<size_t>>> mergedInput(input.size() / embeddings_.FactorCount());
+  std::cerr << "mergedInput.size=" << mergedInput.size() << std::endl;
   for (size_t i = 0; i < input.size(); ) {
     std::vector<std::vector<size_t>> newbatch
       // asume that batchsize is the same for each of the factors of a single word
@@ -121,7 +124,7 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
     std::cerr << "===" << std::endl;
   }
 
-  for (size_t i = 0; i < input.size(); ++i) {
+  for (size_t i = 0; i < mergedInput.size(); ++i) {
     if (i >= embeddedWords_.size()) {
       embeddedWords_.emplace_back();
     }
@@ -129,16 +132,23 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
     //cerr << "embeddedWords_=" << embeddedWords_.back().Debug(true) << endl;
   }
 
+  size_t maxMergedLength = maxSentenceLength / embeddings_.FactorCount();
+  HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+  std::cerr << "Enc::forwardrnn-start embeddedWords.size=" << embeddedWords_.size() << std::endl;
   //cerr << "GetContext3=" << context.Debug(1) << endl;
   forwardRnn_.Encode(embeddedWords_.cbegin(),
-                         embeddedWords_.cbegin() + maxSentenceLength,
+                         embeddedWords_.cbegin() + maxMergedLength,
                          context, source.size(), false);
   //cerr << "GetContext4=" << context.Debug(1) << endl;
 
-  backwardRnn_.Encode(embeddedWords_.crend() - maxSentenceLength,
+  HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+  std::cerr << "Enc::bachwardrnn-start" << std::endl;
+  backwardRnn_.Encode(embeddedWords_.crend() - maxMergedLength,
                           embeddedWords_.crend() ,
                           context, source.size(), true, &sentencesMask);
   //cerr << "GetContext5=" << context.Debug(1) << endl;
+  HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+  std::cerr << "Enc::bachwardrnn-end" << std::endl;
 }
 
 }

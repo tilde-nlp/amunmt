@@ -32,7 +32,9 @@ class Encoder {
           std::vector<HostVector<uint>> knownWords(w_.Es_.size(),
                                                    HostVector<uint>(words.size(), 1));
           std::cerr << "------------" << std::endl;
+          std::cerr << "words size=" << words.size() << std::endl;
           for (auto word : words) {
+            std::cerr << "word size=" << word.size() << std::endl;
             for (auto fact : word) {
               std::cerr << " " << fact;
             }
@@ -136,14 +138,22 @@ class Encoder {
         {
           InitializeState(batchSize);
 
+          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+          std::cerr << "RNN::Encode1" << std::endl;
           CellState prevState(std::unique_ptr<mblas::Matrix>(new mblas::Matrix(*(State_.cell))),
                               std::unique_ptr<mblas::Matrix>(new mblas::Matrix(*(State_.output))));
           size_t n = std::distance(it, end);
           size_t i = 0;
 
+          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+          std::cerr << "RNN::Encode2" << std::endl;
           while(it != end) {
+            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+            std::cerr << "RNN::Encode3.1" << std::endl;
             GetNextState(State_, prevState, *it++);
 
+            HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+            std::cerr << "RNN::Encode3.2" << std::endl;
             //std::cerr << "invert=" << invert << std::endl;
             if(invert) {
               assert(sentencesMask);
@@ -168,6 +178,8 @@ class Encoder {
             prevState.output->swap(*(State_.output));
             ++i;
           }
+          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+          std::cerr << "RNN::Encode4" << std::endl;
         }
 
         CellLength GetStateLength() const {
