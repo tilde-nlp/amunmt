@@ -48,6 +48,12 @@ Sentence::Sentence(const God &god, size_t vLineNum, const std::string& line)
       // merged.insert(merged.end(), wordFactors.begin(), wordFactors.end());
       // words_.push_back(god.GetSourceVocab(i++)(merged));
     }
+    // previously EOS_ID was added when calling vocab's () operator
+    // now we add them manually but should refactor it back when
+    // factor related stuff is properly refactored
+    for (size_t i = 0; i < processed.back().size(); ++i) {
+      words_.back().push_back(EOS_ID);
+    }
     i++;
   }
 }
