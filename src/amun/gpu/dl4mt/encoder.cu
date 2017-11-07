@@ -66,23 +66,24 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
                          mblas::IMatrix &sentencesMask)
 {
   size_t maxSentenceLength = GetMaxLength(source, tab);
+  size_t maxMergedLength = maxSentenceLength / embeddings_.FactorCount();
 
   //cerr << "1dMapping=" << mblas::Debug(dMapping, 2) << endl;
-  HostVector<uint> hMapping(maxSentenceLength * source.size(), 0);
+  HostVector<uint> hMapping(maxMergedLength * source.size(), 0);
   for (size_t i = 0; i < source.size(); ++i) {
-    for (size_t j = 0; j < source.at(i)->GetWords(tab).size(); ++j) {
-      hMapping[i * maxSentenceLength + j] = 1;
+    for (size_t j = 0; j < source.at(i)->GetWords(tab).size() / embeddings_.FactorCount(); ++j) {
+      hMapping[i * maxMergedLength + j] = 1;
     }
   }
 
-  sentencesMask.NewSize(maxSentenceLength, source.size(), 1, 1);
+  sentencesMask.NewSize(maxMergedLength, source.size(), 1, 1);
   mblas::copy(thrust::raw_pointer_cast(hMapping.data()),
               hMapping.size(),
               sentencesMask.data(),
               cudaMemcpyHostToDevice);
 
   //cerr << "GetContext1=" << context.Debug(1) << endl;
-  context.NewSize(maxSentenceLength,
+  context.NewSize(maxMergedLength,
                  forwardRnn_.GetStateLength().output + backwardRnn_.GetStateLength().output,
                  1,
                  source.size());
@@ -117,7 +118,6 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
     //cerr << "embeddedWords_=" << embeddedWords_.back().Debug(true) << endl;
   }
 
-  size_t maxMergedLength = maxSentenceLength / embeddings_.FactorCount();
   //cerr << "GetContext3=" << context.Debug(1) << endl;
   forwardRnn_.Encode(embeddedWords_.cbegin(),
                          embeddedWords_.cbegin() + maxMergedLength,
