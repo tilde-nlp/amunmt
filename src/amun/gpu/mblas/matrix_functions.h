@@ -416,6 +416,10 @@ void Normalization(Matrix& out, const Matrix& in, const Matrix& alpha, float eps
 
 void RandomizeMemory();
 
+std::string Debug(const Matrix& in, size_t row, size_t verbosity=1);
+
+std::string DebugRows(const Matrix& in, size_t verbosity = 1);
+
 } // namespace mblas
 } // namespace GPU
 }

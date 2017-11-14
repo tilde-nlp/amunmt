@@ -76,11 +76,20 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
     }
   }
 
+  for (size_t i = 0; i < source.size(); ++i) {
+    for (size_t j = 0; j < maxMergedLength; ++j) {
+      std::cerr << " " << hMapping[i * maxMergedLength + j];
+    }
+    std::cerr << std::endl;
+  }
+  std::cerr << hMapping.size() << std::endl;
+
   sentencesMask.NewSize(maxMergedLength, source.size(), 1, 1);
   mblas::copy(thrust::raw_pointer_cast(hMapping.data()),
               hMapping.size(),
               sentencesMask.data(),
               cudaMemcpyHostToDevice);
+  std::cerr << sentencesMask.Debug(2) << std::endl;
 
   //cerr << "GetContext1=" << context.Debug(1) << endl;
   context.NewSize(maxMergedLength,
@@ -115,19 +124,47 @@ void Encoder::Encode(const Sentences& source, size_t tab, mblas::Matrix& context
       embeddedWords_.emplace_back();
     }
     embeddings_.Lookup(embeddedWords_[i], mergedInput[i]);
+    HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
     //cerr << "embeddedWords_=" << embeddedWords_.back().Debug(true) << endl;
   }
 
-  //cerr << "GetContext3=" << context.Debug(1) << endl;
+  // float embsum1 = 0;
+  // float embsum2 = 0;
+  // size_t i = 0;
+  // for (auto emb : embeddedWords_) {
+  //   mblas::Matrix m1;
+  //   mblas::Matrix m2;
+  //   m1.NewSize(1, 500, 1, 1);
+  //   m2.NewSize(1, 500, 1, 1);
+  //   HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+  //   std::cerr << "asdfasdfdasf " << emb.dim(0) << " " << emb.dim(1) << " " << emb.dim(2) << std::endl;
+  //   const HostVector<uint> row1(1, 0);
+  //   const HostVector<uint> row2(1, 1);
+  //   mblas::Assemble(m1, emb, DeviceVector<uint>(row1));
+  //   mblas::Assemble(m2, emb, DeviceVector<uint>(row2));
+  //   //mblas::Slice(m2, emb, 1, 500);
+  //   HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
+  //   std::cerr << "Helloyoyo" << std::endl;
+  //   embsum1 += mblas::Sum(m1.data(), m1.size()) * hMapping[i];
+  //   embsum2 += mblas::Sum(m2.data(), m2.size()) * hMapping[maxMergedLength + i];
+  //   ++i;
+  // }
+  // cerr << "Embeddings1 sum=" << embsum1 << endl;
+  // cerr << "Embeddings2 sum=" << embsum2 << endl;
+
+  // cerr << "GetContext3=" << context.Debug(1) << endl;
   forwardRnn_.Encode(embeddedWords_.cbegin(),
                          embeddedWords_.cbegin() + maxMergedLength,
                          context, source.size(), false);
-  //cerr << "GetContext4=" << context.Debug(1) << endl;
+  cerr << "GetContext4=" << context.Debug(1) << endl;
+  cerr << "*********************************************************************" << endl;
 
   backwardRnn_.Encode(embeddedWords_.crend() - maxMergedLength,
                           embeddedWords_.crend() ,
                           context, source.size(), true, &sentencesMask);
-  //cerr << "GetContext5=" << context.Debug(1) << endl;
+  cerr << "GetContext5=" << context.Debug(1) << endl;
+  // cerr << "GetContext6=" << mblas::DebugRows(context) << endl;
+  cerr << "=====================================================================" << endl;
 }
 
 }

@@ -864,6 +864,25 @@ void RandomizeMemory()
   gRandomizeMemory<<<blocks, threads>>>(data);
 }
 
+std::string Debug(const Matrix& in, size_t row, size_t verbosity)
+{
+  Matrix temp;
+  temp.NewSize(1, in.dim(1), in.dim(2), in.dim(3));
+  const HostVector<uint> ids(1, row);
+  Assemble(temp, in, DeviceVector<uint>(ids));
+  return temp.Debug(verbosity);
+}
+
+std::string DebugRows(const Matrix& in, size_t verbosity)
+{
+  std::stringstream strm;
+  for (size_t i = 0; i < in.dim(0); ++i) {
+    strm << Debug(in, i, verbosity) << std::endl;
+  }
+  strm << "*";
+  return strm.str();
+}
+
 }  // namespace mblas
 }  // namespace GPU
 }  // namespace amunmt
