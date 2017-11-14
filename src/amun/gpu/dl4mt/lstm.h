@@ -42,9 +42,9 @@ class SlowLSTM: public Cell {
       Slice(F_, FIO_, 0, cols);
       Slice(I_, FIO_, 1, cols);
       Slice(O_, FIO_, 2, cols);
-      std::cerr << "O_=" << O_.Debug(1) << std::endl;
-      std::cerr << "F_=" << F_.Debug(1) << std::endl;
-      std::cerr << "I_=" << I_.Debug(1) << std::endl;
+      std::cerr << "O_=" << DebugRows(O_, 1, "O_=>") << std::endl;
+      std::cerr << "F_=" << DebugRows(F_, 1, "F_=>") << std::endl;
+      std::cerr << "I_=" << DebugRows(I_, 1, "I_=>") << std::endl;
       // compute the input
       Element(Tanh(_1 + _2), H_, Temp2_);
 
@@ -57,7 +57,7 @@ class SlowLSTM: public Cell {
       Element(_1 + _2, *NextState.cell, H_);
       // apply the output gate
       Element(_1 * Tanh(_2), O_, *NextState.cell);
-      std::cerr << "Output=" << mblas::DebugRows(O_, 1) << std::endl;
+      std::cerr << "Output=" << mblas::DebugRows(O_, 1, "Output=>") << std::endl;
       std::cerr << "Cell=" << mblas::DebugRows(*NextState.cell, 1) << std::endl;
       Swap(*(NextState.output), O_);
       std::cerr << "---------------------" << std::endl;

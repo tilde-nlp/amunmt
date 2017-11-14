@@ -93,6 +93,8 @@ void Fill(Matrix& In, float value=0.0f);
 
 Matrix& Swap(Matrix& Out, Matrix& In);
 
+void RowSum(Matrix& Out, const Matrix& In, const IMatrix &sentencesMask);
+
 void Mean(Matrix& Out, const Matrix& In, const IMatrix &sentencesMask);
 
 void WeightedMean(Matrix& Out,const Matrix& Weights, const Matrix& In, const DeviceVector<uint>& mapping);
@@ -418,7 +420,7 @@ void RandomizeMemory();
 
 std::string Debug(const Matrix& in, size_t row, size_t verbosity=1);
 
-std::string DebugRows(const Matrix& in, size_t verbosity = 1);
+std::string DebugRows(const Matrix& in, size_t verbosity = 1, std::string delimiter="");
 
 } // namespace mblas
 } // namespace GPU

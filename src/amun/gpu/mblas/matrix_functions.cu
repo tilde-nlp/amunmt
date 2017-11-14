@@ -15,6 +15,57 @@ Matrix& Swap(Matrix& Out, Matrix& In) {
   return Out;
 }
 
+__global__ void gRowSum(MatrixWrapper<float> out,
+                        const MatrixWrapper<float> in,
+                        const MatrixWrapper<uint>  mapping)
+{
+  int id = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (id < out.size()) {
+    uint indices[SHAPE_SIZE];
+    out.id2Indices(id, indices);
+
+    size_t batch = indices[0];
+    size_t state = indices[1];
+
+    float sum = 0.0f;
+    for (size_t row = 0; row < in.dim(0); ++row) {
+      int isWord = mapping(row, batch, 0, 0);
+      if (isWord) {
+        sum += in(row, state, 0, batch);
+      }
+    }
+
+    out[id] = sum;
+  }
+}
+
+void RowSum(Matrix& Out, const Matrix& In, const IMatrix &sentencesMask)
+{
+  assert(Out.dim(2) == 1);
+  assert(Out.dim(3) == 1);
+  assert(Out.dim(0) == In.dim(3));
+  assert(Out.dim(1) == In.dim(1));
+  assert(In.dim(0) * In.dim(3) == sentencesMask.size());
+
+  // mean of each ROW
+  size_t batchNum = Out.dim(0) * Out.dim(2) * Out.dim(3);
+  size_t stateLength = Out.dim(1);
+  size_t sentenceLength = (In.dim(0) * In.dim(2) * In.dim(3)) / batchNum;
+
+  MatrixWrapper<float> outWrap(Out);
+  MatrixWrapper<float> inWrap(In);
+
+  MatrixWrapper<uint> mappingWrap(sentencesMask, false);
+
+  size_t threads = MAX_THREADS;
+  size_t blocks =  (outWrap.size() / threads) + ((outWrap.size() % threads == 0) ?  0 : 1);
+
+  gRowSum<<<blocks, threads, 0, CudaStreamHandler::GetStream()>>>
+    (outWrap, inWrap, mappingWrap);
+
+}
+
 __global__ void gMean(MatrixWrapper<float> out,
                       const MatrixWrapper<float> in,
                       const MatrixWrapper<uint>  mapping)
@@ -873,10 +924,13 @@ std::string Debug(const Matrix& in, size_t row, size_t verbosity)
   return temp.Debug(verbosity);
 }
 
-std::string DebugRows(const Matrix& in, size_t verbosity)
+std::string DebugRows(const Matrix& in, size_t verbosity, std::string delimiter)
 {
   std::stringstream strm;
   for (size_t i = 0; i < in.dim(0); ++i) {
+    if (i > 0) {
+      strm << delimiter;
+    }
     strm << Debug(in, i, verbosity) << std::endl;
   }
   strm << "*";

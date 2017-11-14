@@ -97,17 +97,12 @@ class Decoder {
           std::cerr << "Ctx mean=" << Temp2_.Debug() << std::endl;
           std::cerr << "Ctx rows=" << mblas::DebugRows(Temp2_) << std::endl;
           std::cerr << sentencesMask.Debug(2) << std::endl;
-          Matrix test(Temp2_);
-          IMatrix testmask(sentencesMask);
-          HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
-          std::cerr << "InitializeState1" << std::endl;
-
-          testmask.Resize(sentencesMask.dim(1), sentencesMask.dim(0));
+          Matrix test(Temp2_.dim(0), Temp2_.dim(1), Temp2_.dim(2), Temp2_.dim(3));
           HANDLE_ERROR( cudaStreamSynchronize(mblas::CudaStreamHandler::GetStream()));
           std::cerr << "InitializeState2" << std::endl;
-          Mean(test, SourceContext, testmask);
-          std::cerr << "test mean=" << test.Debug() << std::endl;
-          std::cerr << "test rows=" << mblas::DebugRows(test) << std::endl;
+          RowSum(test, SourceContext, sentencesMask);
+          std::cerr << "test=" << test.Debug() << std::endl;
+          std::cerr << "test rows=" << mblas::DebugRows(test, 1, "test rows=>") << std::endl;
 
           //std::cerr << "1State=" << State.Debug(1) << std::endl;
           //std::cerr << "3Temp2_=" << Temp2_.Debug(1) << std::endl;
